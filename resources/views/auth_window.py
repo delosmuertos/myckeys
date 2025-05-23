@@ -6,7 +6,6 @@ from PyQt5.QtGui import QPixmap, QPainter, QColor
 from PyQt5.QtCore import Qt
 
 import os
-from cryptography.fernet import Fernet
 from resources.views.dashboard import Dashboard
 
 # --- Couleurs de la charte graphique ---
@@ -17,35 +16,10 @@ COLOR_INPUT = "#E5D8D8"  # fond des champs
 COLOR_INPUT_BORDER = "#7D4E57"  # bordure des champs
 COLOR_TEXT = "#11151C"  # texte principal
 
-# --- Génération/chargement de la clé de chiffrement pour les logs ---
-KEY_FILE = "logkey.key"
-LOG_FILE = "app.log.enc"
-
-def load_or_create_key():
-    if not os.path.exists(KEY_FILE):
-        key = Fernet.generate_key()
-        with open(KEY_FILE, 'wb') as f:
-            f.write(key)
-    else:
-        with open(KEY_FILE, 'rb') as f:
-            key = f.read()
-    return key
-
-class EncryptedLogger:
-    def __init__(self, key, log_file):
-        self.fernet = Fernet(key)
-        self.log_file = log_file
-
-    def log(self, message):
-        encrypted = self.fernet.encrypt(message.encode())
-        with open(self.log_file, 'ab') as f:
-            f.write(encrypted + b'\n')
-
 # --- Interface d'authentification ---
 class AuthWindow(QWidget):
-    def __init__(self, logger):
+    def __init__(self):
         super().__init__()
-        self.logger = logger
         self.setWindowTitle("Messagerie chiffrée - Authentification")
         self.setFixedSize(1000, 900)
         self.setStyleSheet(f"background-color: {COLOR_BG};")
@@ -148,21 +122,9 @@ class AuthWindow(QWidget):
             if not user or not pwd:
                 raise ValueError("Tous les champs sont obligatoires.")
             # Ici, on pourrait vérifier les identifiants
-            self.logger.log(f"Connexion réussie pour l'utilisateur: {user}")
             print("avant ouverture du dashboard")
             self.dashboard = Dashboard()
             self.dashboard.show()
             self.close()
         except Exception as e:
                 print("Erreur lors de l'ouverture du Dashboard :", e)
-        except Exception as e:
-            self.logger.log(f"Erreur de connexion: {str(e)}")
-            # Afficher une alerte à l'utilisateur (optionnel)
-
-if __name__ == "__main__":
-    key = load_or_create_key()
-    logger = EncryptedLogger(key, LOG_FILE)
-    app = QApplication(sys.argv)
-    window = AuthWindow(logger)
-    window.show()
-    sys.exit(app.exec_()) 

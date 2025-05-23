@@ -6,10 +6,19 @@ from database.models import User
 
 from app.UserManager import UserManager
 
+from PyQt5.QtWidgets import QApplication
+
+from resources.views.auth_window import AuthWindow
+
 def main():
     init_db()
     
-    UserManager.create_user("Test", "motdepasse")
+    # UserManager.create_user("Test", "motdepasse")
+    
+    app = QApplication(sys.argv)
+    window = AuthWindow()
+    window.show()
+    sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
