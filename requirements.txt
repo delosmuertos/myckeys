@@ -1,0 +1,2 @@
+sqlalchemy
+passlib[bcrypt]
