@@ -1,151 +1,218 @@
+'''
+Changelog :
+
+Correction de l'échange de clé :
+- Vérification robuste si échange a déjà eu lieu
+- Echange de clé symétique groupe ou solo --> Blocage tant que la clé n'a pas été reçue
+- 
+''' 
+
+# Importations nécessaire au bon fonctionnement du prog
 import socket
-import psutil
 import threading
 import time
+import os
 
-UDP_PORT = 37020            # Port utilisé pour les messages de broadcast (Pas besoin de handshake)
-TCP_PORT = 12345            # Port d'écoute pour les messages
-BROADCAST_INTERVAL = 3      # Combien de temps entre les broadcasts
-BUFFER_SIZE = 1024          # Taille max des messages lus
-known_peers = set()         # Ensemble, pour stocker les pairs déjà découverts, n'est pas un tableau !
-received_messages = []      # Un tableau pour stocker les messages
-logs = []                   # Un tableau pour stocker les logs
-public_keys = {}            # Un dictionnaire pour stocker les clés publiques reçues
+# Variables globales servant pour le réseau, les ports, ...
+BROADCAST_PORT = 50000
+TCP_PORT = 50001
+BROADCAST_INTERVAL = 5
+BUFFER_SIZE = 1024
 
-# Utiisation d'une sorte de leurre pour savoir quelle interface le système va utiliser, le code va donc enregistrer l'IP
-def get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
-    finally:
-        s.close()
+# Initialisation des tableaux et ensembles
+known_peers = set()
+logs = []
+messages = []
+public_keys = {}
+ma_cle_publique = ""
 
-LOCAL_IP = get_local_ip()
-logs.append(f"[INIT] Adresse IP locale : {LOCAL_IP}")
+stop_event = threading.Event()
 
+# Fonction s'occupoant de charger la clé publique à partir d'un chemin donné, vérification de présence de la clé intégrée
+def charger_cle_publique():
+    global ma_cle_publique
+    chemin = "/home/victor/Bureau/Ges/Année 2/Projet Messagerie Chiffrée/Code/test_cle_publique.pem"
+    if os.path.exists(chemin):
+        with open(chemin, 'r') as f:
+            ma_cle_publique = f.read().strip()
+            logs.append("[INFO] Clé publique chargée depuis le fichier.")
+    else:
+        logs.append("[AVERTISSEMENT] Fichier de clé publique introuvable.")
 
-def udp_broadcast():
-    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Demande de création de socket UDP
-    udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1) # Configuration de la socket pour envoyer en mode broadcast
-    msg = f"{LOCAL_IP}:{TCP_PORT}".encode() # On envoie en broadcast l'IP local de mon PC (du pair) ainsi que son port par lequel on va communiquer
+# Fonction permettant de se promouvoir au niveau du réseau, afin que nous puissions être détecté par les autres instances du prog
+def broadcast_presence():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        while not stop_event.is_set():
+            message = "DISCOVER_PEER"
+            s.sendto(message.encode(), ('<broadcast>', BROADCAST_PORT))
+            time.sleep(BROADCAST_INTERVAL)
 
-    while True:  # Envoi en boucle sur le réseau
-        udp_sock.sendto(msg, ('<broadcast>', UDP_PORT)) # Envoi du message avec Adresse et Port, via l'IP de broadcast ainsi que le port qu'on a choisi au début
-        logs.append(f"[BROADCAST] Annonce envoyée depuis {LOCAL_IP}:{TCP_PORT}") # Mise en logs
-        time.sleep(BROADCAST_INTERVAL) # Un temps d'attente pour éviter de bombarder le réseau de requêtes
-
-
-def udp_listener():
-    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Demande de création de socket UDP
-    udp_sock.bind(('', UDP_PORT)) # On réserve la socket demandé à un port de notre choix, mais on écoute sur toutes les interfaces
-    while True: # Tant que la condition est vraie
-        data, addr = udp_sock.recvfrom(1024) # Stockage de la data et des informations de l'envoyeur
-        try:
-            peer_ip_port = data.decode() # Décodage de la data reçue
-            ip, port = peer_ip_port.split(':') # On sépare l'IP et le port dans des variables
-            if ip == LOCAL_IP: # Vérifie que ce qu'on a reçu n'est pas nous même
-                continue
-            peer = (ip, int(port))
-            if peer not in known_peers: # Vérification si le pair distant est nouveau, comparaison avec l'ensemble
-                known_peers.add(peer) # Ajout du pair dans l'ensemble
-                logs.append(f"[DISCOVERY] Nouveau pair détecté : {peer}") # Affichage dans le terminal du nouveau pair
-        except:
-            logs.append("[ERREUR] Message UDP mal formé.")
-
-
-def tcp_server():
-    tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Demande de cr"ation d'une socket en TCP (SOCK_STREAM)
-    tcp_sock.bind((LOCAL_IP, TCP_PORT)) # Attribution d'une adresse d'écoute et d'un port
-    tcp_sock.listen() # Mise en écoute
-    logs.append(f"[TCP] En écoute sur {LOCAL_IP}:{TCP_PORT}")
-    while True: # Tant que c'est vrai
-        conn, addr = tcp_sock.accept() # Accepte les connexions des pair grâce à l'IP de celui-ci
-        logs.append(f"[TCP] Connexion de {addr}")
-        threading.Thread(target=handle_connection, args=(conn, addr)).start()  # Lancement dans un thread
-
-# Fonction appelée pour prendre en charge la connexion avec un pair, l'envoi de message et l'échange de clés
-def handle_connection(conn, addr):
-    with conn: # Objet utilisé pour communiquer avec le pair
-        try:
-            first_data = conn.recv(BUFFER_SIZE) # On met les données reçues dans first_data
-            if first_data.startswith(b"[KEY]"): # Si les données commencent par [KEY] alors
-                key = first_data.decode()[5:]
-                public_keys[addr] = key
-                logs.append(f"[CLÉ PUBLIQUE] Reçue de {addr} : {key}")
-            else:
-                msg = first_data.decode() # Si ce n'est pas une clé, alors on l'interprête comme un message
-                received_messages.append((addr, msg)) # On enregistre ça dans received_messages
-                logs.append(f"[REÇU] de {addr} : {msg}") # Logs
-
-            while True: # Tant que c'est vrai
-                data = conn.recv(BUFFER_SIZE) # Enregistrement des données reçues dans datz
-                if not data: # Un failsafe
-                    break
-                msg = data.decode() # On enregistre la donnée dans message
-                received_messages.append((addr, msg)) # On ajoute aux messages reçus
-                logs.append(f"[REÇU] de {addr} : {msg}") # Logs
-        except:
-            logs.append(f"[ERREUR] Connexion interrompue avec {addr}")
-
-
-def menu():
-    while True: # Affichage du menu tant qu'on quite pas
-        print("\n========= MENU =========")
-        print("1 - Afficher les pairs connus")
-        print("2 - Envoyer un message à un pair")
-        print("3 - Voir les messages reçus")
-        print("4 - Voir les logs système")
-        print("5 - Voir les clés publiques des pairs")
-        print("q - Quitter")
-        choix = input("Choix > ").strip()
-
-        if choix == "1":
-            print("\n--- Pairs connus ---")
-            for i, peer in enumerate(known_peers):
-                print(f"{i}: {peer}") # Enumaration des éléments dans known_peers
-        elif choix == "2":
-            if not known_peers:
-                print("Aucun pair disponible.") # Failsafe si jamais il n'y a pas de pairs trouvés
-                continue
-            print("\nChoisir un pair :")
-            for i, peer in enumerate(known_peers):
-                print(f"{i}: {peer}") # Enumération des pairs trouvés précédemment
+# Fonction permettant de découvrir les pairs sur le réseau
+def listen_for_peers():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.bind(('', BROADCAST_PORT))
+        while not stop_event.is_set():
             try:
-                idx = int(input("Numéro du pair > ")) # On entre un numéro de pair celon la liste
-                peer = list(known_peers)[idx] # On compare
-                msg = input("Message > ") # On entre un message
-                with socket.create_connection(peer, timeout=5) as sock:
-                    fake_key = "FAKE_PUBLIC_KEY_123" # Création d'une fake clé publique pour le test 
-                    sock.sendall(f"[KEY]{fake_key}".encode()) # Envoi aux pairs
-                    time.sleep(0.1) # Un sleep
-                    sock.sendall(msg.encode())
-                    logs.append(f"[ENVOYÉ] à {peer} : {msg}")
+                data, addr = s.recvfrom(BUFFER_SIZE)
+                if data.decode() == "DISCOVER_PEER":
+                    if addr[0] != socket.gethostbyname(socket.gethostname()):
+                        known_peers.add(addr[0])
+                        logs.append(f"[INFO] Nouveau pair découvert : {addr[0]}")
             except Exception as e:
-                print(f"Erreur : {e}")
-        elif choix == "3":
-            print("\n--- Messages reçus ---")
-            for addr, msg in received_messages:
-                print(f"De {addr} > {msg}") # Affichage des messages reçus
-        elif choix == "4":
-            print("\n--- Logs ---")
-            for log in logs[-20:]:
-                print(log) # Affichage des logs
-        elif choix == "5":
-            print("\n--- Clés publiques connues ---")
-            for peer, key in public_keys.items():
-                print(f"{peer} > {key}") # Affichages de clés publiques en fonction des pairs
-        elif choix == "q":
-            print("Au revoir.")
-            break
+                logs.append(f"[ERREUR] Message UDP mal formé : {e}")
+
+# Soccupe de tout ce qui est récepption de message venant du réseau, clés et messages
+def handle_client(conn, addr):
+    try:
+        data = conn.recv(BUFFER_SIZE).decode()
+        if data.startswith("PUBKEY:"):
+            peer_ip = addr[0]
+            key = data.split(":", 1)[1]
+            public_keys[peer_ip] = key
+            logs.append(f"[INFO] Clé publique reçue de {peer_ip}")
+            if ma_cle_publique:
+                try:
+                    conn.send(f"PUBKEY:{ma_cle_publique}".encode())
+                    logs.append(f"[INFO] Clé publique renvoyée à {peer_ip}")
+                except Exception as e:
+                    logs.append(f"[ERREUR] Échec de la réponse de clé publique à {peer_ip} : {e}")
         else:
-            print("Choix invalide.")
+            messages.append((addr[0], data))
+            logs.append(f"[INFO] Message reçu de {addr[0]} : {data}")
+    except Exception as e:
+        logs.append(f"[ERREUR] Connexion entrante mal formée : {e}")
+    finally:
+        conn.close()
 
-# Système mettant en threads les différentes fonctions du programme 
+# Lance le démon serveur TCP
+def start_tcp_server():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', TCP_PORT))
+        s.listen()
+        while not stop_event.is_set():
+            try:
+                s.settimeout(1.0)
+                conn, addr = s.accept()
+                threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+            except socket.timeout:
+                continue
+
+# Logique derrière l'échange de clé publiques lors du premier envoi de message entre deux nouveaux pairs
+def echanger_cles_publiques(ip):
+    if ip in public_keys:
+        return True
+    if not ma_cle_publique:
+        logs.append("[ERREUR] Clé publique locale non chargée.")
+        return False
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((ip, TCP_PORT))
+            s.send(f"PUBKEY:{ma_cle_publique}".encode())
+            logs.append(f"[INFO] Clé publique envoyée à {ip}")
+            data = s.recv(BUFFER_SIZE).decode()
+            if data.startswith("PUBKEY:"):
+                key = data.split(":", 1)[1]
+                public_keys[ip] = key
+                logs.append(f"[INFO] Clé publique reçue de {ip}")
+                return True
+            else:
+                logs.append(f"[ERREUR] Réponse inattendue lors de l'échange de clé avec {ip}")
+                return False
+    except Exception as e:
+        logs.append(f"[ERREUR] Échec de l'échange de clé avec {ip} : {e}")
+        return False
+
+# Fonction s'occupant d'envoyer un message
+def envoyer_message(ip, msg):
+    if not echanger_cles_publiques(ip):
+        logs.append(f"[ERREUR] Envoi de message annulé, clé publique non échangée avec {ip}")
+        return
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((ip, TCP_PORT))
+            s.send(msg.encode())
+            logs.append(f"[INFO] Message envoyé à {ip} : {msg}")
+    except Exception as e:
+        logs.append(f"[ERREUR] Échec de l'envoi du message à {ip} : {e}")
+
+# Fonction s'occupant d'envoyer un message en multicast, réutilise la logique d'envoi de message solo
+def envoyer_message_groupe(ips, msg):
+    for ip in ips:
+        print(f"[INFO] Envoi au pair {ip} ...")
+        envoyer_message(ip, msg)
+
+# Menu permettant de choisir quoi faire
+def menu():
+    try:
+        while True:
+            print("\nMenu:")
+            print("1. Afficher les pairs connus")
+            print("2. Afficher les messages")
+            print("3. Afficher les logs")
+            print("4. Envoyer un message")
+            print("5. Envoyer un message à un groupe")
+            print("6. Afficher les clés publiques reçues")
+            print("7. Quitter")
+            choix = input("> ")
+
+            if choix == '1':
+                for peer in known_peers:
+                    print(f"- {peer}")
+            elif choix == '2':
+                for sender, msg in messages:
+                    print(f"De {sender} : {msg}")
+            elif choix == '3':
+                for log in logs:
+                    print(log)
+            elif choix == '4':
+                peer_list = list(known_peers)
+                for i, peer in enumerate(peer_list):
+                    print(f"{i}. {peer}")
+                idx = int(input("Choisissez un pair : "))
+                if idx < 0 or idx >= len(peer_list):
+                    print("Index invalide.")
+                    continue
+                msg = input("Message à envoyer : ")
+                envoyer_message(peer_list[idx], msg)
+            elif choix == '5':
+                peer_list = list(known_peers)
+                if not peer_list:
+                    print("Aucun pair disponible.")
+                    continue
+                print("Paires disponibles :")
+                for i, peer in enumerate(peer_list):
+                    print(f"{i}. {peer}")
+                selection = input("Entrez les indices séparés par des virgules ou 'tous' : ")
+                if selection.lower() == 'tous':
+                    destinataires = peer_list
+                else:
+                    try:
+                        indices = [int(i.strip()) for i in selection.split(',')]
+                        destinataires = [peer_list[i] for i in indices if 0 <= i < len(peer_list)]
+                    except Exception:
+                        print("Entrée invalide.")
+                        continue
+                msg = input("Message à envoyer au groupe : ")
+                envoyer_message_groupe(destinataires, msg)
+            elif choix == '6':
+                if public_keys:
+                    for ip, key in public_keys.items():
+                        print(f"{ip} : {key}")
+                else:
+                    print("Aucune clé publique reçue.")
+            elif choix == '7':
+                stop_event.set()
+                break
+            else:
+                print("Choix invalide.")
+    except KeyboardInterrupt:
+        stop_event.set()
+
+# Gestion de threads
 if __name__ == "__main__":
-    threading.Thread(target=udp_broadcast, daemon=True).start()
-    threading.Thread(target=udp_listener, daemon=True).start()
-    threading.Thread(target=tcp_server, daemon=True).start()
-
-    print("[SYSTEME] Peer lancé. Interface en cours...")
+    charger_cle_publique()
+    threading.Thread(target=broadcast_presence, daemon=True).start()
+    threading.Thread(target=listen_for_peers, daemon=True).start()
+    threading.Thread(target=start_tcp_server, daemon=True).start()
     menu()
