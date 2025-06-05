@@ -1,0 +1,6 @@
+git log = affiche les différentes sauvegarde
+git checkout main ou git checkout aurelien = pour changer de branche !!!!Attention!!! Il faut que le code soit commit avant de faire un checkout
+git checkout hash commit = reviens à un commit en particulier
+git branch = pour afficher la branche sur laquelle je me trouve
+git merge aurelien ou git merge main = fusionne le code avec le code sur l'autre branche
+git reset --hard = enleve toutes les modifications qui n'ont pas étaient commit
