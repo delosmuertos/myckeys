@@ -9,7 +9,7 @@ from network.discovery import MyListener, annoncer_service, DecouverteThread
 
 SERVICE_TYPE = "_securemsg._tcp.local."
 SERVICE_PORT = 50001  # À adapter selon serveur TCP
-# ca marche bien
+# ca marche bien 2
 class IconTextButton(QFrame):
     def __init__(self, icon_path, text, parent=None):
         super().__init__(parent)
