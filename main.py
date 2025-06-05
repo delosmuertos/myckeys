@@ -13,7 +13,7 @@ from resources.views.auth_window import AuthWindow
 def main():
     init_db()
     
-    # UserManager.create_user("Test", "motdepasse")
+    #UserManager.create_user("A", "a")
     
     app = QApplication(sys.argv)
     window = AuthWindow()
@@ -22,3 +22,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

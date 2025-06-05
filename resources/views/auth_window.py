@@ -1,31 +1,95 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QFrame
+    QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QFrame, QMessageBox, QSizePolicy
 )
 from PyQt5.QtGui import QPixmap, QPainter, QColor
 from PyQt5.QtCore import Qt
+from passlib.context import CryptContext
+from database.db import SessionLocal
+from database.models import User
 
 import os
 from resources.views.dashboard import Dashboard
 
 # --- Couleurs de la charte graphique ---
-COLOR_BG = "rgb(54, 65, 86)"  # fond principal
+COLOR_BG = "#404349"  # fond principal
 COLOR_CARD = "#F5F5F5"  # fond du formulaire
 COLOR_ACCENT = "#D66853"  # boutons, cercles
 COLOR_INPUT = "#E5D8D8"  # fond des champs
 COLOR_INPUT_BORDER = "#7D4E57"  # bordure des champs
 COLOR_TEXT = "#11151C"  # texte principal
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 # --- Interface d'authentification ---
 class AuthWindow(QWidget):
+    """
+    Fenêtre d'authentification de l'application.
+    
+    Cette classe gère l'interface utilisateur et la logique d'authentification.
+    Elle permet aux utilisateurs de se connecter avec leur nom d'utilisateur et mot de passe.
+    """
+    
     def __init__(self):
+        """
+        Initialise la fenêtre d'authentification.
+        Configure la fenêtre et initialise l'interface utilisateur.
+        """
         super().__init__()
         self.setWindowTitle("Messagerie chiffrée - Authentification")
-        self.setFixedSize(1000, 900)
-        self.setStyleSheet(f"background-color: {COLOR_BG};")
+        self.setMinimumSize(800, 600)
+        
+        # Styles de l'interface
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {COLOR_BG};
+            }}
+            QFrame#card {{
+                background-color: {COLOR_CARD};
+                border-radius: 10px;
+            }}
+            QLabel {{
+                background: transparent;
+            }}
+            QLabel#title {{
+                color: {COLOR_TEXT};
+                font-size: 14px;
+            }}
+            QLineEdit {{
+                background-color: {COLOR_INPUT};
+                border: 1px solid {COLOR_INPUT_BORDER};
+                border-radius: 5px;
+                padding: 8px;
+                color: {COLOR_TEXT};
+            }}
+            QLabel#error {{
+                color: red;
+                font-size: 14px;
+            }}
+            QPushButton#login {{
+                background-color: {COLOR_ACCENT};
+                color: white;
+                font-size: 15px;
+                border-radius: 5px;
+            }}
+            QPushButton#login:hover {{
+                background-color: #c55a47;
+            }}
+            QPushButton#login:pressed {{
+                background-color: #b54a37;
+            }}
+        """)
+        
         self.init_ui()
 
     def paintEvent(self, event):
+        """
+        Gère l'événement de peinture de la fenêtre.
+        Dessine les cercles décoratifs en arrière-plan.
+        
+        Args:
+            event: L'événement de peinture
+        """
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(QColor(COLOR_ACCENT))
@@ -43,17 +107,29 @@ class AuthWindow(QWidget):
             painter.drawEllipse(center_x_right - r, center_y_right - r, 2*r, 2*r)
 
     def init_ui(self):
+        """
+        Initialise l'interface utilisateur.
+        Crée et configure tous les widgets de la fenêtre d'authentification.
+        """
+        # Layout principal
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        
         # Carte centrale
         card = QFrame(self)
-        card.setStyleSheet(f"background: {COLOR_CARD}; border-radius: 16px;")
-        card.setFixedSize(350, 380)
-        card.move((self.width() - card.width()) // 2, (self.height() - card.height()) // 2)
+        card.setObjectName("card")
+        card.setMinimumSize(350, 380)
+        card.setMaximumWidth(500)
+        # Centrer la carte
+        card_layout = QVBoxLayout()
+        card_layout.addWidget(card, alignment=Qt.AlignCenter)
+        main_layout.addLayout(card_layout)
 
         vbox = QVBoxLayout(card)
         vbox.setAlignment(Qt.AlignCenter)
-        vbox.setSpacing(15)
+        vbox.setSpacing(10)
 
-        # Icône utilisateur (image user.png)
+        # Icône utilisateur
         icon_label = QLabel()
         user_icon_path = os.path.join("resources/img", "user.png")
         if os.path.exists(user_icon_path):
@@ -67,64 +143,86 @@ class AuthWindow(QWidget):
 
         # Titre
         title = QLabel("Bienvenue sur votre messagerie chiffrée")
+        title.setObjectName("title")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet(f"color: {COLOR_TEXT}; font-size: 16px; font-weight: 500;")
         vbox.addWidget(title)
+        vbox.addSpacing(20)  # espace entre le titre et le champ identifiant
 
         # Champ identifiant
         self.input_user = QLineEdit()
         self.input_user.setPlaceholderText("Identifiant")
-        self.input_user.setStyleSheet(f"background: {COLOR_INPUT}; border: 2px solid {COLOR_INPUT_BORDER}; border-radius: 6px; padding: 8px; color: {COLOR_TEXT};")
         vbox.addWidget(self.input_user)
+        vbox.addSpacing(5)
+        self.input_user.returnPressed.connect(self.handle_login)
 
         # Champ mot de passe
         self.input_pwd = QLineEdit()
         self.input_pwd.setPlaceholderText("Mot de passe")
         self.input_pwd.setEchoMode(QLineEdit.Password)
-        self.input_pwd.setStyleSheet(f"background: {COLOR_INPUT}; border: 2px solid {COLOR_INPUT_BORDER}; border-radius: 6px; padding: 8px; color: {COLOR_TEXT};")
         vbox.addWidget(self.input_pwd)
+        self.input_pwd.returnPressed.connect(self.handle_login)
 
-        vbox.addSpacing(15)  # 30 pixels d'espace, ajuste la valeur selon ton besoin
+        # Label pour les messages d'erreur
+        self.error_label = QLabel("")
+        self.error_label.setObjectName("error")
+        self.error_label.setAlignment(Qt.AlignCenter)
+        vbox.addWidget(self.error_label)
 
-        # Bouton connexion avec icône log-in.png au-dessus du texte
+        vbox.addSpacing(0)
+
+        # Bouton connexion
         self.btn_login = QPushButton()
-        self.btn_login.setFixedSize(200, 65)
-        self.btn_login.setStyleSheet(f"background: {COLOR_ACCENT}; color: white; font-size: 15px; border-radius: 8px;")
+        self.btn_login.setObjectName("login")
+        self.btn_login.setMinimumSize(200, 65)
         
-        # Créer un layout vertical pour le bouton
+        # Layout du bouton
         btn_layout = QVBoxLayout(self.btn_login)
+        btn_layout.setContentsMargins(10, 8, 10, 8)
+        btn_layout.setSpacing(0)
         
-        # Icône
+        # Icône du bouton
         icon_label = QLabel()
-        login_icon_path = os.path.join("resources/img", "log-in.png")
+        login_icon_path = os.path.join("resources/img", "log-inblanc.png")
         if os.path.exists(login_icon_path):
             pixmap = QPixmap(login_icon_path)
-            white_pixmap = QPixmap(pixmap.size())
-            white_pixmap.fill(Qt.white)
-            white_pixmap.setMask(pixmap.createMaskFromColor(Qt.transparent))
-            icon_label.setPixmap(white_pixmap.scaled(18, 18, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            icon_label.setPixmap(pixmap.scaled(20, 22))
         icon_label.setAlignment(Qt.AlignCenter)
         btn_layout.addWidget(icon_label)
         
-        # Texte
+        # Texte du bouton
         text_label = QLabel("Se connecter")
-        text_label.setStyleSheet("color: white; font-size: 15px;")
+        text_label.setStyleSheet("color: white; font-size: 12px;")
         text_label.setAlignment(Qt.AlignCenter)
         btn_layout.addWidget(text_label)
         
         self.btn_login.clicked.connect(self.handle_login)
+        self.btn_login.setDefault(True)
         vbox.addWidget(self.btn_login, alignment=Qt.AlignHCenter)
 
     def handle_login(self):
+        """
+        Gère la tentative de connexion de l'utilisateur.
+        Vérifie les identifiants et redirige vers le dashboard si l'authentification réussit.
+        """
         user = self.input_user.text()
         pwd = self.input_pwd.text()
         try:
             if not user or not pwd:
-                raise ValueError("Tous les champs sont obligatoires.")
-            # Ici, on pourrait vérifier les identifiants
-            print("avant ouverture du dashboard")
-            self.dashboard = Dashboard()
-            self.dashboard.show()
-            self.close()
+                self.error_label.setText("Tous les champs sont obligatoires.")
+                return
+            
+            # Vérification des identifiants
+            with SessionLocal() as session:
+                db_user = session.query(User).filter_by(username=user).first()
+                if not db_user or not pwd_context.verify(pwd, db_user.password):
+                    self.error_label.setText("Identifiants incorrects.")
+                    return
+                
+                # Si on arrive ici, l'authentification a réussi
+                self.error_label.setText("")
+                self.dashboard = Dashboard(username=user)
+                self.dashboard.show()
+                self.close()
         except Exception as e:
-                print("Erreur lors de l'ouverture du Dashboard :", e)
+            self.error_label.setText(f"Erreur lors de l'authentification : {str(e)}")
+            print("Erreur détaillée :", e)
