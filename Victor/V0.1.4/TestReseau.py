@@ -87,11 +87,14 @@ def handle_client(conn, addr):
             try:
                 _, nom, msg = data.split(":", 2)
                 if nom not in groupes:
+                    logs.append(f"[DEBUG] Groupe inconnu '{nom}' — création automatique")
+
                     groupes[nom] = {
                         "membres": [],
                         "messages": []
                     }
                     logs.append(f"[INFO] Message de groupe reçu pour groupe inconnu '{nom}', groupe créé.")
+                    logs.append(f"[DEBUG] Message de groupe reçu de {addr[0]} pour '{nom}' : {msg}")
                 groupes[nom]["messages"].append((addr[0], msg))
                 logs.append(f"[INFO] Message de {addr[0]} reçu dans le groupe '{nom}' : {msg}")
             except Exception as e:
@@ -101,6 +104,8 @@ def handle_client(conn, addr):
             try:
                 _, nom, ips_str = data.split(":", 2)
                 membres = ips_str.split(",")
+                logs.append(f"[DEBUG] JOINGROUP reçu pour groupe '{nom}' avec membres : {membres}")
+
                 groupes[nom] = {
                     "membres": membres,
                     "messages": []
@@ -111,6 +116,7 @@ def handle_client(conn, addr):
                 my_ip = socket.gethostbyname(socket.gethostname())
                 for ip in membres:
                     if ip != my_ip:
+                        logs.append(f"[DEBUG] Tentative d'échange de clé avec {ip} à la réception du groupe")
                         echanger_cles_publiques(ip)
 
             except Exception as e:
@@ -139,6 +145,7 @@ def start_tcp_server():
 
 # Logique derrière l'échange de clé publiques lors du premier envoi de message entre deux nouveaux pairs
 def echanger_cles_publiques(ip):
+    logs.append(f"[DEBUG] Démarrage de l’échange de clé avec {ip}")
     if ip in public_keys:
         return True
     if not ma_cle_publique:
@@ -153,6 +160,7 @@ def echanger_cles_publiques(ip):
             if data.startswith("PUBKEY:"):
                 key = data.split(":", 1)[1]
                 public_keys[ip] = key
+                logs.append(f"[DEBUG] Échange de clé réussi avec {ip}")
                 logs.append(f"[INFO] Clé publique reçue de {ip}")
                 return True
             else:
@@ -194,6 +202,7 @@ def creer_groupe(nom, membres):
         logs.append(f"[AVERTISSEMENT] Un groupe nommé '{nom}' existe déjà.")
         return
 
+    logs.append(f"[DEBUG] Création du groupe '{nom}' avec membres : {membres}")
     groupes[nom] = {
         "membres": membres,
         "messages": []
@@ -201,11 +210,13 @@ def creer_groupe(nom, membres):
     logs.append(f"[INFO] Groupe '{nom}' créé avec les membres : {membres}")
 
     for ip in membres:
+        logs.append(f"[DEBUG] Tentative d’échange de clé avec {ip} lors de la création du groupe")
         if not echanger_cles_publiques(ip):
             logs.append(f"[ERREUR] Clé publique manquante pour {ip}, groupe incomplet.")
             continue
 
         try:
+            logs.append(f"[DEBUG] Envoi de JOINGROUP à {ip}")
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((ip, TCP_PORT))
                 group_info = f"JOINGROUP:{nom}:{','.join(membres)}"
@@ -220,11 +231,18 @@ def envoyer_message_dans_groupe(nom, msg):
         logs.append(f"[ERREUR] Le groupe '{nom}' n'existe pas.")
         return
     membres = groupes[nom]["membres"]
+    logs.append(f"[DEBUG] Envoi d’un message dans le groupe '{nom}'")
+    logs.append(f"[DEBUG] Membres du groupe '{nom}' : {membres}")
+
+    logs.append(f"[DEBUG] Envoi d’un message dans groupe '{nom}' aux membres : {membres}")
     for ip in membres:
         if ip == socket.gethostbyname(socket.gethostname()):
+            logs.append(f"[DEBUG] Ignoré : moi-même ({ip})")
             continue  # Ne pas s'envoyer à soi-même
+        logs.append(f"[DEBUG] Tentative d'envoi à {ip} pour le groupe '{nom}'")
         envoyer_message(ip, f"GROUPMSG:{nom}:{msg}")
     groupes[nom]["messages"].append(("Moi", msg))
+    logs.append(f"[DEBUG] Message ajouté localement dans groupe '{nom}'")
     logs.append(f"[INFO] Message envoyé au groupe '{nom}' : {msg}")
 
 
