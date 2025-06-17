@@ -1,7 +1,9 @@
 '''
 Changelog :
 
-Correction de l'échange de clé :
+- Ajout d'une fonction de création de groupe à partir des IP disponibles
+- Ajout d'une fonction d'envoi de message par groupe
+- Ajout de deux nouveaux menus liés aux groupes
 
 ''' 
 
@@ -77,6 +79,20 @@ def handle_client(conn, addr):
                     logs.append(f"[INFO] Clé publique renvoyée à {peer_ip}")
                 except Exception as e:
                     logs.append(f"[ERREUR] Échec de la réponse de clé publique à {peer_ip} : {e}")
+        elif data.startswith("GROUPMSG:"):
+            try:
+                _, nom, msg = data.split(":", 2)
+                if nom not in groupes:
+                    groupes[nom] = {
+                        "membres": [],
+                        "messages": []
+                    }
+                    logs.append(f"[INFO] Message de groupe reçu pour groupe inconnu '{nom}', groupe créé.")
+                groupes[nom]["messages"].append((addr[0], msg))
+                logs.append(f"[INFO] Message de {addr[0]} reçu dans le groupe '{nom}' : {msg}")
+            except Exception as e:
+                logs.append(f"[ERREUR] Mauvais format de message GROUPMSG : {e}")
+            return
         else:
             messages.append((addr[0], data))
             logs.append(f"[INFO] Message reçu de {addr[0]} : {data}")
@@ -141,13 +157,53 @@ def envoyer_message_multicast(ips, msg):
     for ip in ips:
         print(f"[INFO] Envoi au pair {ip} ...")
         envoyer_message(ip, msg)
-
+"""
 # Fonction s'occupant d'envoyer un message en groupe, réutilise la logique d'envoi de message solo
 def envoyer_message_groupe(ips, msg):
     for ip in ips:
         print(f"[INFO] Envoi au pair {ip} ...")
         envoyer_message(ip, msg)
         echanger_destinataires_groupe(ip, ips)
+"""
+# Fonction s'occupant de créer un groupe
+def creer_groupe(nom, membres):
+    if nom in groupes:
+        logs.append(f"[AVERTISSEMENT] Un groupe nommé '{nom}' existe déjà.")
+        return
+
+    groupes[nom] = {
+        "membres": membres,
+        "messages": []
+    }
+    logs.append(f"[INFO] Groupe '{nom}' créé avec les membres : {membres}")
+
+    for ip in membres:
+        if not echanger_cles_publiques(ip):
+            logs.append(f"[ERREUR] Clé publique manquante pour {ip}, groupe incomplet.")
+            continue
+
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((ip, TCP_PORT))
+                group_info = f"JOINGROUP:{nom}:{','.join(membres)}"
+                s.send(group_info.encode())
+                logs.append(f"[INFO] Notification de groupe '{nom}' envoyée à {ip}")
+        except Exception as e:
+            logs.append(f"[ERREUR] Impossible de notifier {ip} pour le groupe '{nom}' : {e}")
+
+# Fonction permettant d'envoyer un message à un groupe existant
+def envoyer_message_dans_groupe(nom, msg):
+    if nom not in groupes:
+        logs.append(f"[ERREUR] Le groupe '{nom}' n'existe pas.")
+        return
+    membres = groupes[nom]["membres"]
+    for ip in membres:
+        if ip == socket.gethostbyname(socket.gethostname()):
+            continue  # Ne pas s'envoyer à soi-même
+        envoyer_message(ip, f"GROUPMSG:{nom}:{msg}")
+    groupes[nom]["messages"].append(("Moi", msg))
+    logs.append(f"[INFO] Message envoyé au groupe '{nom}' : {msg}")
+
 
 # Logique derrière l'échange de clé publiques lors du premier envoi de message entre deux nouveaux pairs
 def echanger_destinataires_groupe(ip, ips):
@@ -159,6 +215,22 @@ def echanger_destinataires_groupe(ip, ips):
             s.send(f"PAIRS:{ips}".encode())
             logs.append(f"[INFO] Destinataires envoyés à {ip}")
             data = s.recv(BUFFER_SIZE).decode()
+            if data.startswith("JOINGROUP:"):
+                try:
+                    _, nom, ips_str = data.split(":", 2)
+                    membres = ips_str.split(",")
+                    if nom not in groupes:
+                        groupes[nom] = {
+                            "membres": membres,
+                            "messages": []
+                        }
+                        logs.append(f"[INFO] Groupe '{nom}' rejoint avec membres : {membres}")
+                    else:
+                        logs.append(f"[INFO] Groupe '{nom}' déjà connu localement.")
+                except Exception as e:
+                    logs.append(f"[ERREUR] Mauvais format de message JOINGROUP : {e}")
+                return
+
             if data.startswith("PAIRS:"):
                 pairs_group = data.split(":", 1)[1]
                 group_list.append = ips
@@ -180,18 +252,36 @@ def menu():
             print("2. Afficher les messages")
             print("3. Afficher les logs")
             print("4. Envoyer un message")
-            print("5. Envoyer un message à un groupe")
+            print("5. DEPRECATED - Envoyer un message à un groupe")
             print("6. Envoyer un message en multicast")
             print("7. Afficher les clés publiques reçues")
-            print("8. Quitter")
+            print("8. Créer un groupe")
+            print("9. Envoyer un message à un groupe existant")
+            print("10. Quitter")
             choix = input("> ")
 
             if choix == '1':
                 for peer in known_peers:
                     print(f"- {peer}")
             elif choix == '2':
-                for sender, msg in messages:
-                    print(f"De {sender} : {msg}")
+                print("\n--- Messages directs ---")
+                if messages:
+                    for sender, msg in messages:
+                        print(f"De {sender} : {msg}")
+                else:
+                    print("Aucun message direct reçu.")
+
+                print("\n--- Messages de groupes ---")
+                if groupes:
+                    for nom, data in groupes.items():
+                        print(f"\n[Groupe : {nom}]")
+                        if data["messages"]:
+                            for sender, msg in data["messages"]:
+                                print(f"De {sender} : {msg}")
+                        else:
+                            print("Aucun message dans ce groupe.")
+                else:
+                    print("Aucun groupe enregistré.")
             elif choix == '3':
                 for log in logs:
                     print(log)
@@ -247,6 +337,47 @@ def menu():
                 else:
                     print("Aucune clé publique reçue.")
             elif choix == '8':
+                peer_list = list(known_peers)
+                if not peer_list:
+                    print("Aucun pair disponible.")
+                    continue
+                print("Pairs disponibles :")
+                for i, peer in enumerate(peer_list):
+                    print(f"{i}. {peer}")
+                selection = input("Entrez les indices des membres du groupe (ex: 0,1,2) ou 'tous' : ")
+                if selection.lower() == 'tous':
+                    membres = peer_list
+                else:
+                    try:
+                        indices = [int(i.strip()) for i in selection.split(',')]
+                        membres = [peer_list[i] for i in indices if 0 <= i < len(peer_list)]
+                    except Exception:
+                        print("Entrée invalide.")
+                        continue
+                nom = input("Nom du groupe : ").strip()
+                if nom:
+                    creer_groupe(nom, membres)
+                else:
+                    print("Nom de groupe invalide.")
+            elif choix == '9':
+                if not groupes:
+                    print("Aucun groupe disponible.")
+                    continue
+                print("Groupes disponibles :")
+                noms = list(groupes.keys())
+                for i, nom in enumerate(noms):
+                    print(f"{i}. {nom}")
+                try:
+                    idx = int(input("Choisissez un groupe : "))
+                    if idx < 0 or idx >= len(noms):
+                        print("Index invalide.")
+                        continue
+                    nom = noms[idx]
+                    msg = input("Message à envoyer au groupe : ")
+                    envoyer_message_dans_groupe(nom, msg)
+                except Exception:
+                    print("Entrée invalide.")
+            elif choix == '10':
                 stop_event.set()
                 break
             else:
