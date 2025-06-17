@@ -374,13 +374,18 @@ def menu():
                 if not peer_list:
                     print("Aucun pair disponible.")
                     continue
-                else:
+                print("Paires disponibles :")
+                for i, peer in enumerate(peer_list):
+                    print(f"{i}. {peer}")
+                selection = input("Entrez les indices des pairs à cibler (ex: 0,1) ou 'tous' : ")
+                if selection.lower() == 'tous':
                     destinataires = peer_list
+                else:
                     try:
                         indices = [int(i.strip()) for i in selection.split(',')]
                         destinataires = [peer_list[i] for i in indices if 0 <= i < len(peer_list)]
                     except Exception:
-                        print("Un problème est survenu")
+                        print("Entrée invalide.")
                         continue
                 msg = input("Message à envoyer en multicast : ")
                 envoyer_message_multicast(destinataires, msg)
