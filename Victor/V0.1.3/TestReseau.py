@@ -99,6 +99,25 @@ def handle_client(conn, addr):
             except Exception as e:
                 logs.append(f"[ERREUR] Mauvais format de message GROUPMSG : {e}")
             return
+        elif data.startswith("JOINGROUP:"):
+            try:
+                _, nom, ips_str = data.split(":", 2)
+                membres = ips_str.split(",")
+                groupes[nom] = {
+                    "membres": membres,
+                    "messages": []
+                }
+                logs.append(f"[INFO] Groupe '{nom}' rejoint avec membres : {membres}")
+
+                # Échange de clés publiques avec les autres membres
+                my_ip = socket.gethostbyname(socket.gethostname())
+                for ip in membres:
+                    if ip != my_ip:
+                        echanger_cles_publiques(ip)
+
+            except Exception as e:
+                logs.append(f"[ERREUR] Mauvais format de message JOINGROUP : {e}")
+            return
         else:
             messages.append((addr[0], data))
             logs.append(f"[INFO] Message reçu de {addr[0]} : {data}")
