@@ -1,12 +1,20 @@
-from reseau.cle_publique import charger_cle_publique, echanger_cles_publiques
-from reseau.decouverte import broadcast_presence, listen_for_peers, get_known_peers, get_stop_event
-from reseau.tcp_serveur import start_tcp_server, get_messages, get_logs, get_public_keys, set_ma_cle_publique, get_groupes
-from reseau.envoi import envoyer_message, envoyer_message_multicast, envoyer_message_dans_groupe
-from reseau.groupes import creer_groupe
-from reseau.menu import afficher_menu
+# main.py
+from tools.cle_publique import charger_cle_publique
+from tools.decouverte import broadcast_presence, listen_for_peers
+from tools.tcp_serveur import start_tcp_server
+from tools.menu import afficher_menu
+import threading
 
-#...
+def main():
+    charger_cle_publique()
+
+    # Lancement des threads réseau
+    threading.Thread(target=broadcast_presence, daemon=True).start()
+    threading.Thread(target=listen_for_peers, daemon=True).start()
+    threading.Thread(target=start_tcp_server, daemon=True).start()
+
+    # Menu interactif
+    afficher_menu()
 
 if __name__ == "__main__":
-    #...
-    afficher_menu()
+    main()
