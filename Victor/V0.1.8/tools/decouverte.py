@@ -29,12 +29,3 @@ def listen_for_peers():
                         logs.append(f"[INFO] Nouveau pair découvert : {addr[0]}")
             except Exception as e:
                 logs.append(f"[ERREUR] Message UDP mal formé : {e}")
-
-def get_known_peers():
-    return list(known_peers)
-
-def get_logs():
-    return logs
-
-def get_stop_event():
-    return stop_event

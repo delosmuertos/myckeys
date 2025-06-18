@@ -6,6 +6,8 @@ TCP_PORT         = 50001
 BROADCAST_INTERVAL = 5          # secondes
 BUFFER_SIZE      = 1024
 
+ma_cle_publique = ""
+
 # Liste des pairs détectés sur le réseau
 known_peers = set()
 

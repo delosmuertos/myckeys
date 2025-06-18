@@ -1,7 +1,7 @@
 # Importations nécessaires, ainsi que d'autres classes
 import socket
 from tools.cle_publique import echanger_cles_publiques
-from tools.etat import logs, groupes, TCP_PORT
+from tools.etat import logs, groupes, TCP_PORT, ma_cle_publique
 from tools.utils import get_local_ip
 
 # Fonction s'occupant d'envoyer un message

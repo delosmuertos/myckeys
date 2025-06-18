@@ -1,7 +1,7 @@
 # Importations nécessaires
 import socket
 import threading
-from tools.etat import logs, messages, groupes, public_keys, stop_event, BUFFER_SIZE, TCP_PORT
+from tools.etat import logs, messages, groupes, public_keys, stop_event, BUFFER_SIZE, TCP_PORT, ma_cle_publique
 from tools.utils import get_local_ip
 
 def set_ma_cle_publique(valeur):

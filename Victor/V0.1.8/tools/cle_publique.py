@@ -2,7 +2,7 @@
 import socket
 import threading
 import os
-from tools.etat import public_keys, logs, TCP_PORT, BUFFER_SIZE
+from tools.etat import public_keys, logs, TCP_PORT, BUFFER_SIZE, ma_cle_publique
 
 # Variables globales et initialisations
 ma_cle_publique = ""
