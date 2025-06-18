@@ -2,6 +2,7 @@
 import socket
 import threading
 from tools.etat import logs, messages, groupes, public_keys, stop_event
+from tools.utils import get_local_ip
 
 # Variables globales pour les réglages
 BUFFER_SIZE = 1024

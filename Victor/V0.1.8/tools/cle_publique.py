@@ -9,15 +9,20 @@ BUFFER_SIZE = 1024
 ma_cle_publique = ""
 
 # Fonction s'occupant de charger la clé publique
-def charger_cle_publique(chemin="../../test_cle_publique.pem"):
+def charger_cle_publique(chemin=None):
     global ma_cle_publique
+
+    # Définir un chemin par défaut basé sur la racine du projet
+    if chemin is None:
+        chemin = os.path.join(os.getcwd(), "../../test_cle_publique.pem")
+
     # Vérification du chemin et lecture
     if os.path.exists(chemin):
         with open(chemin, 'r') as f:
             ma_cle_publique = f.read().strip()
-            logs.append("[INFO] Clé publique chargée depuis le fichier.")
+            logs.append(f"[INFO] Clé publique chargée depuis : {chemin}")
     else:
-        logs.append("[AVERTISSEMENT] Fichier de clé publique introuvable.")
+        logs.append(f"[AVERTISSEMENT] Fichier de clé publique introuvable à : {chemin}")
 
 # Fonction s'occupant de l'échange des clés publiques entre pairs
 def echanger_cles_publiques(ip):

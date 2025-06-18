@@ -3,6 +3,7 @@ import socket
 import threading
 import time
 from tools.etat import known_peers, logs, stop_event
+from tools.utils import get_local_ip
 
 # Variables globales pour régler ou changer rapidement les ports et la taille du buffer
 BROADCAST_PORT = 50000
