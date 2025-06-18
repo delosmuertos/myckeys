@@ -2,6 +2,8 @@
 import socket
 from tools.cle_publique import echanger_cles_publiques
 from tools.tcp_serveur import get_groupes, get_logs
+from tools.etat import groupes, logs
+
 
 # Initialisations et variables globales
 TCP_PORT = 50001

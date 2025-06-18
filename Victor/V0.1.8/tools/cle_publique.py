@@ -2,6 +2,7 @@
 import socket
 import threading
 import os
+from tools.etat import public_keys, logs
 
 # Variables globales et initialisations
 BUFFER_SIZE = 1024

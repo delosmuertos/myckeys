@@ -3,6 +3,7 @@ from tools.cle_publique import charger_cle_publique
 from tools.decouverte import broadcast_presence, listen_for_peers
 from tools.tcp_serveur import start_tcp_server
 from tools.menu import afficher_menu
+from tools.etat import stop_event
 import threading
 
 def main():

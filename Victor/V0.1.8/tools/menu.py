@@ -3,6 +3,7 @@ from tools.decouverte import get_known_peers
 from tools.envoi import envoyer_message, envoyer_message_multicast, envoyer_message_dans_groupe
 from tools.groupes import creer_groupe
 from tools.tcp_serveur import get_groupes, get_messages, get_logs
+from tools.etat import known_peers, logs, messages, groupes
 
 def afficher_menu():
     known_peers = get_known_peers()
