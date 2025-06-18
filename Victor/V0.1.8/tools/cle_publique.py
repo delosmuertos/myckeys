@@ -14,7 +14,7 @@ def charger_cle_publique(chemin=None):
 
     # Définir un chemin par défaut basé sur la racine du projet
     if chemin is None:
-        chemin = os.path.join(os.getcwd(), "../../test_cle_publique.pem")
+        chemin = os.path.join(os.getcwd(), "test_cle_publique.pem")
 
     # Vérification du chemin et lecture
     if os.path.exists(chemin):
