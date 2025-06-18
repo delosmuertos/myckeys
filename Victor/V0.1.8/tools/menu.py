@@ -1,10 +1,10 @@
 # Importations des autres classes
-from tools.peers import get_known_peers
-from tools.messages import envoyer_message, envoyer_message_multicast
-from tools.groupes import creer_groupe
-from tools.tcp_serveur import get_groupes, get_messages, get_logs
-from tools.utils import detect_my_ip
-from tools.messages import envoyer_message_dans_groupe
+from peers import get_known_peers
+from messages import envoyer_message, envoyer_message_multicast
+from groupes import creer_groupe
+from tcp_serveur import get_groupes, get_messages, get_logs
+from utils import detect_my_ip
+from messages import envoyer_message_dans_groupe
 
 def afficher_menu():
     known_peers = get_known_peers()
