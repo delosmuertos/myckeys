@@ -9,11 +9,6 @@ BROADCAST_PORT = 50000
 BROADCAST_INTERVAL = 5
 BUFFER_SIZE = 1024
 
-# Initialisation des tableaux, dictionnaires, ...
-known_peers = set()
-logs = []
-stop_event = threading.Event()
-
 # Fonction permettant de se promouvoir au niveau du réseau, afin que nous puissions être détecté par les autres instances du prog
 def broadcast_presence():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as s:

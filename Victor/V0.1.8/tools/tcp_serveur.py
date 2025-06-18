@@ -7,14 +7,6 @@ from tools.etat import logs, messages, groupes, public_keys, stop_event
 BUFFER_SIZE = 1024
 TCP_PORT = 50001
 
-# Initialisation des variables globales
-logs = []
-messages = []
-public_keys = {}
-groupes = {}
-ma_cle_publique = ""
-stop_event = threading.Event()
-
 def set_ma_cle_publique(valeur):
     global ma_cle_publique
     ma_cle_publique = valeur

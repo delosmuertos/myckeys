@@ -7,8 +7,6 @@ from tools.etat import public_keys, logs
 # Variables globales et initialisations
 BUFFER_SIZE = 1024
 ma_cle_publique = ""
-public_keys = {}
-logs = []
 
 # Fonction s'occupant de charger la clé publique
 def charger_cle_publique(chemin="../../test_cle_publique.pem"):
