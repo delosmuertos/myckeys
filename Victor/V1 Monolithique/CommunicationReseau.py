@@ -29,7 +29,6 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
-
 # Fonction s'occupoant de charger la clé publique à partir d'un chemin donné, vérification de présence de la clé intégrée
 def charger_cle_publique():
     global ma_cle_publique
@@ -264,45 +263,6 @@ def envoyer_message_dans_groupe(nom, msg):
     logs.append(f"[DEBUG] Message ajouté localement dans groupe '{nom}'")
     logs.append(f"[INFO] Message envoyé au groupe '{nom}' : {msg}")
 
-"""
-# Logique derrière l'échange de clé publiques lors du premier envoi de message entre deux nouveaux pairs
-def echanger_destinataires_groupe(ip, ips):
-    if ip in public_keys:
-        return True
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((ip, TCP_PORT))
-            s.send(f"PAIRS:{ips}".encode())
-            logs.append(f"[INFO] Destinataires envoyés à {ip}")
-            data = s.recv(BUFFER_SIZE).decode()
-            if data.startswith("JOINGROUP:"):
-                try:
-                    _, nom, ips_str = data.split(":", 2)
-                    membres = ips_str.split(",")
-                    if nom not in groupes:
-                        groupes[nom] = {
-                            "membres": membres,
-                            "messages": []
-                        }
-                        logs.append(f"[INFO] Groupe '{nom}' rejoint avec membres : {membres}")
-                    else:
-                        logs.append(f"[INFO] Groupe '{nom}' déjà connu localement.")
-                except Exception as e:
-                    logs.append(f"[ERREUR] Mauvais format de message JOINGROUP : {e}")
-                return
-
-            if data.startswith("PAIRS:"):
-                pairs_group = data.split(":", 1)[1]
-                group_list.append = ips
-                logs.append(f"[INFO] Pairs pour la discussion reçue de {ip}")
-                return True
-            else:
-                logs.append(f"[ERREUR] Erreur inattendue lors de l'échange des contacts du groupe {ip}")
-                return False
-    except Exception as e:
-        logs.append(f"[ERREUR] Echec de l'échange de pairs {ip} : {e}")
-        return False
-"""
 # Menu permettant de choisir quoi faire
 def menu():
     try:
@@ -312,12 +272,11 @@ def menu():
             print("2. Afficher les messages")
             print("3. Afficher les logs")
             print("4. Envoyer un message")
-            print("5. DEPRECATED - Envoyer un message à un groupe")
-            print("6. Envoyer un message en multicast")
-            print("7. Afficher les clés publiques reçues")
-            print("8. Créer un groupe")
-            print("9. Envoyer un message à un groupe existant")
-            print("10. Quitter")
+            print("5. Envoyer un message en multicast")
+            print("6. Afficher les clés publiques reçues")
+            print("7. Créer un groupe")
+            print("8. Envoyer un message à un groupe existant")
+            print("9. Quitter")
             choix = input("> ")
 
             if choix == '1':
@@ -355,29 +314,7 @@ def menu():
                     continue
                 msg = input("Message à envoyer : ")
                 envoyer_message(peer_list[idx], msg)
-                """
             elif choix == '5':
-                peer_list = list(known_peers)
-                if not peer_list:
-                    print("Aucun pair disponible.")
-                    continue
-                print("Paires disponibles :")
-                for i, peer in enumerate(peer_list):
-                    print(f"{i}. {peer}")
-                selection = input("Entrez les indices séparés par des virgules ou 'tous' : ")
-                if selection.lower() == 'tous':
-                    destinataires = peer_list
-                else:
-                    try:
-                        indices = [int(i.strip()) for i in selection.split(',')]
-                        destinataires = [peer_list[i] for i in indices if 0 <= i < len(peer_list)]
-                    except Exception:
-                        print("Entrée invalide.")
-                        continue
-                msg = input("Message à envoyer au groupe : ")
-                envoyer_message_groupe(destinataires, msg)
-                """
-            elif choix == '6':
                 peer_list = list(known_peers)
                 if not peer_list:
                     print("Aucun pair disponible.")
@@ -397,13 +334,13 @@ def menu():
                         continue
                 msg = input("Message à envoyer en multicast : ")
                 envoyer_message_multicast(destinataires, msg)
-            elif choix == '7':
+            elif choix == '6':
                 if public_keys:
                     for ip, key in public_keys.items():
                         print(f"{ip} : {key}")
                 else:
                     print("Aucune clé publique reçue.")
-            elif choix == '8':
+            elif choix == '7':
                 peer_list = list(known_peers)
                 if not peer_list:
                     print("Aucun pair disponible.")
@@ -426,7 +363,7 @@ def menu():
                     creer_groupe(nom, membres)
                 else:
                     print("Nom de groupe invalide.")
-            elif choix == '9':
+            elif choix == '8':
                 if not groupes:
                     print("Aucun groupe disponible.")
                     continue
@@ -444,7 +381,7 @@ def menu():
                     envoyer_message_dans_groupe(nom, msg)
                 except Exception:
                     print("Entrée invalide.")
-            elif choix == '10':
+            elif choix == '9':
                 stop_event.set()
                 break
             else:
