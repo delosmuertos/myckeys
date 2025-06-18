@@ -10,7 +10,7 @@ public_keys = {}
 logs = []
 
 # Fonction s'occupant de charger la clé publique
-def charger_cle_publique(path="../../test_cle_publique.pem"):
+def charger_cle_publique(chemin="../../test_cle_publique.pem"):
     global ma_cle_publique
     # Vérification du chemin et lecture
     if os.path.exists(chemin):
