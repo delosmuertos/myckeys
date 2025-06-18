@@ -1,7 +1,7 @@
 # Importations nécessaires
 import socket
 import threading
-from tools.etat import logs, messages, groupes, public_keys, stop_even
+from tools.etat import logs, messages, groupes, public_keys, stop_event
 
 # Variables globales pour les réglages
 BUFFER_SIZE = 1024
