@@ -1,7 +1,7 @@
 # Importations nécessaires, ainsi que d'autres classes
 import socket
-from reseau.cle_publique import echanger_cles_publiques
-from reseau.tcp_serveur import get_groupes, get_logs
+from tools.cle_publique import echanger_cles_publiques
+from tools.tcp_serveur import get_groupes, get_logs
 
 # Variables globales
 TCP_PORT = 50001
