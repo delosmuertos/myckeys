@@ -2,13 +2,8 @@
 import socket
 import threading
 import time
-from tools.etat import known_peers, logs, stop_event
+from tools.etat import known_peers, logs, stop_event, BROADCAST_PORT, BROADCAST_INTERVAL, BUFFER_SIZE
 from tools.utils import get_local_ip
-
-# Variables globales pour régler ou changer rapidement les ports et la taille du buffer
-BROADCAST_PORT = 50000
-BROADCAST_INTERVAL = 5
-BUFFER_SIZE = 1024
 
 # Fonction permettant de se promouvoir au niveau du réseau, afin que nous puissions être détecté par les autres instances du prog
 def broadcast_presence():

@@ -1,12 +1,8 @@
 # Importations nécessaires, ainsi que d'autres classes
 import socket
 from tools.cle_publique import echanger_cles_publiques
-from tools.tcp_serveur import get_groupes
-from tools.etat import logs, public_keys, groupes
+from tools.etat import logs, groupes, TCP_PORT
 from tools.utils import get_local_ip
-
-# Variables globales
-TCP_PORT = 50001
 
 # Fonction s'occupant d'envoyer un message
 def envoyer_message(ip, msg):

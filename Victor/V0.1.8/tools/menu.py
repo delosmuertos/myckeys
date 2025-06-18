@@ -19,7 +19,7 @@ def afficher_menu():
             choix = input("> ")
 
             if choix == '1':
-                for peer in known_peers:
+                for peer in list(known_peers):
                     print(f"- {peer}")
             elif choix == '2':
                 print("\n--- Messages directs ---")

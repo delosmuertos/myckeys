@@ -1,11 +1,8 @@
 # Importations et importations d'autres classes
 import socket
 from tools.cle_publique import echanger_cles_publiques
-from tools.etat import groupes, logs
+from tools.etat import groupes, logs, TCP_PORT
 from tools.utils import get_local_ip
-
-# Initialisations et variables globales
-TCP_PORT = 50001
 
 # Fonction s'occupant de créer un groupe
 def creer_groupe(nom, membres):

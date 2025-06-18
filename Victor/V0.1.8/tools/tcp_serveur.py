@@ -1,12 +1,8 @@
 # Importations nécessaires
 import socket
 import threading
-from tools.etat import logs, messages, groupes, public_keys, stop_event
+from tools.etat import logs, messages, groupes, public_keys, stop_event, BUFFER_SIZE, TCP_PORT
 from tools.utils import get_local_ip
-
-# Variables globales pour les réglages
-BUFFER_SIZE = 1024
-TCP_PORT = 50001
 
 def set_ma_cle_publique(valeur):
     global ma_cle_publique

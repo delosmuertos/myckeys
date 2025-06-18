@@ -1,5 +1,11 @@
 # État global partagé entre tous les modules
 
+# tools/config.py
+BROADCAST_PORT   = 50000
+TCP_PORT         = 50001
+BROADCAST_INTERVAL = 5          # secondes
+BUFFER_SIZE      = 1024
+
 # Liste des pairs détectés sur le réseau
 known_peers = set()
 

@@ -2,10 +2,9 @@
 import socket
 import threading
 import os
-from tools.etat import public_keys, logs
+from tools.etat import public_keys, logs, TCP_PORT, BUFFER_SIZE
 
 # Variables globales et initialisations
-BUFFER_SIZE = 1024
 ma_cle_publique = ""
 
 # Fonction s'occupant de charger la clé publique
