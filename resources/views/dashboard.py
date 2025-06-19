@@ -272,19 +272,33 @@ class Dashboard(QWidget):
         if self.selected_peripherique and self.selected_peripherique.get('ip') == ip:
             self.selected_peripherique = None
             self.selected_widget = None
-            self.afficher_chat(None)
+        self.afficher_chat(None)  
 
     def _on_message_received(self, sender_ip: str, message: str):
+        """Callback quand un message direct est reçu"""
         print(f"[DEBUG] Message reçu de {sender_ip}: {message}")
-        if self.selected_conversation and self.selected_conversation.get('ip') == sender_ip:
+        # Rafraîchir l'affichage si la conversation actuelle correspond à l'expéditeur
+        if (self.selected_conversation and 
+            self.selected_conversation.get('type') == 'contact' and 
+            self.selected_conversation.get('ip') == sender_ip):
             print(f"[DEBUG] Rafraîchissement de l'affichage du chat pour {sender_ip}")
-            self.afficher_chat(self.selected_conversation)
+            # Utiliser QTimer pour éviter les problèmes de thread
+            QTimer.singleShot(100, lambda: self.afficher_chat(self.selected_conversation))
         else:
             print(f"[DEBUG] Message ignoré car conversation non sélectionnée ou différente")
 
     def _on_group_message_received(self, group_name: str, sender_ip: str, message: str):
-        if self.selected_conversation and self.selected_conversation.get('type') == 'group' and self.selected_conversation.get('name') == group_name:
-            self.afficher_chat(self.selected_conversation)
+        """Callback quand un message de groupe est reçu"""
+        print(f"[DEBUG] Message de groupe reçu dans '{group_name}' de {sender_ip}: {message}")
+        # Rafraîchir l'affichage si la conversation actuelle correspond au groupe
+        if (self.selected_conversation and 
+            self.selected_conversation.get('type') == 'group' and 
+            self.selected_conversation.get('name') == group_name):
+            print(f"[DEBUG] Rafraîchissement de l'affichage du chat de groupe pour {group_name}")
+            # Utiliser QTimer pour éviter les problèmes de thread
+            QTimer.singleShot(100, lambda: self.afficher_chat(self.selected_conversation))
+        else:
+            print(f"[DEBUG] Message de groupe ignoré car conversation non sélectionnée ou différente")
 
     def _on_log_message(self, log_entry: str):
         """Callback pour les messages de log"""
@@ -325,12 +339,20 @@ class Dashboard(QWidget):
         print(f"[DEBUG] Nombre de widgets créés: {len(self.peripherique_widgets)}")
 
     def selectionner_peripherique(self, periph, widget):
+        """Sélectionne un périphérique et affiche sa conversation"""
         if self.selected_widget:
             self.selected_widget.set_selected(False)
         widget.set_selected(True)
         self.selected_peripherique = periph
         self.selected_widget = widget
-        self.afficher_chat({'type': 'contact', 'name': periph['nom'], 'ip': periph['ip']})
+        
+        # Créer l'objet conversation et afficher le chat
+        conversation = {
+            'type': 'contact', 
+            'name': periph['nom'], 
+            'ip': periph['ip']
+        }
+        self.afficher_chat(conversation)
 
     def ajouter_conversation(self):
         if self.selected_peripherique and self.selected_peripherique not in self.conversations:
@@ -408,7 +430,7 @@ class Dashboard(QWidget):
         # Icônes de droite
         logos_layout = QHBoxLayout()
         logos_layout.setSpacing(12)
-        logos_layout.setContentsMargins(0, 0, 0, 4)
+        logos_layout.setContentsMargins(0, 0, 0, 4) 
         for icon_name in ["door-key.png", "bell.png"]:
             icon_path = os.path.join("resources/img", icon_name)
             if os.path.exists(icon_path):
@@ -433,10 +455,12 @@ class Dashboard(QWidget):
         if conv['type'] == 'contact':
             messages = self.network_manager.get_messages()
             print(f"[DEBUG] Messages récupérés pour {conv['ip']}: {messages}")
+            
+            # Filtrer les messages pour ce contact
             contact_messages = [msg for msg in messages if msg[0] == conv['ip']]
             print(f"[DEBUG] Messages filtrés pour {conv['ip']}: {contact_messages}")
             
-            for sender_ip, message in contact_messages:
+            for sender_ip, message_content in contact_messages:
                 msg_widget = QFrame()
                 msg_widget.setStyleSheet("""
                     QFrame {
@@ -456,7 +480,7 @@ class Dashboard(QWidget):
                 msg_layout.addWidget(sender_label)
                 
                 # Contenu du message
-                msg_content = QLabel(message)
+                msg_content = QLabel(message_content)
                 msg_content.setWordWrap(True)
                 msg_content.setStyleSheet("color: #333; font-size: 14px; margin-top: 4px;")
                 msg_layout.addWidget(msg_content)
@@ -466,7 +490,7 @@ class Dashboard(QWidget):
             group_messages = self.network_manager.get_group_messages(conv['name'])
             print(f"[DEBUG] Messages de groupe récupérés pour {conv['name']}: {group_messages}")
             
-            for sender_ip, message in group_messages:
+            for sender_ip, message_content in group_messages:
                 msg_widget = QFrame()
                 msg_widget.setStyleSheet("""
                     QFrame {
@@ -486,7 +510,7 @@ class Dashboard(QWidget):
                 msg_layout.addWidget(sender_label)
                 
                 # Contenu du message
-                msg_content = QLabel(message)
+                msg_content = QLabel(message_content)
                 msg_content.setWordWrap(True)
                 msg_content.setStyleSheet("color: #333; font-size: 14px; margin-top: 4px;")
                 msg_layout.addWidget(msg_content)
@@ -543,24 +567,36 @@ class Dashboard(QWidget):
         self.chat_layout.addWidget(input_frame)
 
     def envoyer_message(self, target_ip: str):
-        if hasattr(self, 'message_input') and self.message_input.text().strip():
-            message = self.message_input.text().strip()
-            success = self.network_manager.send_message(target_ip, message)
-            if success:
-                self.message_input.clear()
-                self.afficher_chat(self.selected_conversation)
-            else:
-                QMessageBox.warning(self, "Erreur", "Impossible d'envoyer le message")
+        """Envoie un message à un contact"""
+        try:
+            if hasattr(self, 'message_input') and self.message_input.text().strip():
+                message = self.message_input.text().strip()
+                success = self.network_manager.send_message(target_ip, message)
+                if success:
+                    self.message_input.clear()
+                    # Rafraîchir l'affichage après un court délai pour laisser le temps au message d'être traité
+                    QTimer.singleShot(100, lambda: self.afficher_chat(self.selected_conversation))
+                else:
+                    QMessageBox.warning(self, "Erreur", "Impossible d'envoyer le message")
+        except Exception as e:
+            print(f"[ERROR] Erreur lors de l'envoi du message: {str(e)}")
+            QMessageBox.warning(self, "Erreur", f"Une erreur est survenue lors de l'envoi du message: {str(e)}")
 
     def envoyer_message_groupe(self, group_name: str):
-        if hasattr(self, 'message_input') and self.message_input.text().strip():
-            message = self.message_input.text().strip()
-            success = self.network_manager.send_group_message(group_name, message)
-            if success:
-                self.message_input.clear()
-                self.afficher_chat(self.selected_conversation)
-            else:
-                QMessageBox.warning(self, "Erreur", "Impossible d'envoyer le message de groupe")
+        """Envoie un message à un groupe"""
+        try:
+            if hasattr(self, 'message_input') and self.message_input.text().strip():
+                message = self.message_input.text().strip()
+                success = self.network_manager.send_group_message(group_name, message)
+                if success:
+                    self.message_input.clear()
+                    # Rafraîchir l'affichage après un court délai pour laisser le temps au message d'être traité
+                    QTimer.singleShot(100, lambda: self.afficher_chat(self.selected_conversation))
+                else:
+                    QMessageBox.warning(self, "Erreur", "Impossible d'envoyer le message de groupe")
+        except Exception as e:
+            print(f"[ERROR] Erreur lors de l'envoi du message de groupe: {str(e)}")
+            QMessageBox.warning(self, "Erreur", f"Une erreur est survenue lors de l'envoi du message de groupe: {str(e)}")
 
     def effacement_securise(self):
         reply = QMessageBox.question(
