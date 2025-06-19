@@ -92,7 +92,7 @@ class ContactCell(QFrame):
         layout.setContentsMargins(18, 0, 0, 0)
         layout.setSpacing(18)
         # Cercle avec initiales
-        circle = QLabel(initiales)
+        circle = QLabel(initials)
         circle.setFixedSize(44, 44)
         circle.setAlignment(Qt.AlignCenter)
         circle.setStyleSheet("""
