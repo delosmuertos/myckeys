@@ -122,58 +122,46 @@ class MessageManager:
             resultats[ip] = self.envoyer_message(ip, msg)
         return resultats
 
-    def traiter_message_recu(self, data: str, addr: str) -> bool:
-        """Traite un message direct chiffré reçu"""
+    def traiter_message_recu(self, data: str, addr: str) -> Optional[str]:
+        """
+        Traite un message direct reçu.
+        Retourne le message en clair si le déchiffrement réussit, sinon None.
+        """
         try:
-            print(f"[DEBUG] MessageManager - Traitement du message reçu de {addr}: {data}")
-            print(f"[DEBUG] MessageManager - État des messages avant ajout: {self.messages}")
-            
-            # Vérifier si le message n'est pas vide
             if not data or not addr:
-                print("[DEBUG] MessageManager - Message ou adresse vide, ignoré")
-                return False
+                return None
             
-            # Essayer de parser le message comme JSON (message chiffré)
             try:
                 message_data = json.loads(data)
                 if message_data.get('type') == 'ENCRYPTED_MESSAGE':
-                    # Déchiffrer le message
                     encrypted_key = bytes.fromhex(message_data['encrypted_key'])
                     iv = bytes.fromhex(message_data['iv'])
                     ciphertext = bytes.fromhex(message_data['ciphertext'])
                     
-                    # Déchiffrer avec notre clé privée
                     decrypted_message = CryptoManager.hybrid_decrypt(encrypted_key, iv, ciphertext)
                     plaintext = decrypted_message.decode()
                     
                     self.log(f"[INFO] Message déchiffré reçu de {addr} : {plaintext}")
-                    
-                    # Ajouter le message déchiffré à la liste
                     self.messages.append((addr, plaintext))
-                    print(f"[DEBUG] MessageManager - Message déchiffré ajouté, nouvel état: {self.messages}")
-                    # Sauvegarder les messages
                     self._save_messages()
-                    return True
+                    return plaintext
                 else:
-                    # Message non chiffré (pour la compatibilité)
+                    # Gérer d'autres types de messages JSON si nécessaire
+                    self.log(f"[INFO] Message JSON non-chiffré reçu de {addr} : {data}")
                     self.messages.append((addr, data))
-                    self.log(f"[INFO] Message non chiffré reçu de {addr} : {data}")
-                    # Sauvegarder les messages
                     self._save_messages()
-                    return True
-                    
+                    return data
+
             except json.JSONDecodeError:
-                # Message non chiffré (pour la compatibilité)
+                # Gérer les messages non-JSON (pour la compatibilité)
+                self.log(f"[INFO] Message texte simple reçu de {addr} : {data}")
                 self.messages.append((addr, data))
-                self.log(f"[INFO] Message non chiffré reçu de {addr} : {data}")
-                # Sauvegarder les messages
                 self._save_messages()
-                return True
+                return data
                 
         except Exception as e:
-            print(f"[ERROR] MessageManager - Erreur lors du traitement du message: {str(e)}")
             self.log(f"[ERREUR] Erreur lors du traitement du message de {addr} : {e}")
-            return False
+            return None
 
     def traiter_echange_cles(self, data: str, addr: str) -> bool:
         """Traite un échange de clés publiques"""

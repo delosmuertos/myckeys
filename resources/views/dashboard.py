@@ -9,6 +9,7 @@ from network.discovery import MyListener, annoncer_service, DecouverteThread
 from network.disconnect import DisconnectManager
 import logging
 from app.network_manager import NetworkManager
+from resources.views.settings_window import SettingsWindow
 
 SERVICE_TYPE = "_securemsg._tcp.local."
 SERVICE_PORT = 50001  # À adapter selon serveur TCP
@@ -58,66 +59,100 @@ class CircleIcon(QFrame):
         layout.addWidget(icon_label, alignment=Qt.AlignCenter)
 
     def update_style(self):
-        base = "#D66853"
-        hover = "#b54a37"
-        selected = "#a13e2a"
-        color = selected if self.selected else base
-        self.setStyleSheet(f"""
-            QFrame {{
-                background: {color};
-                border-radius: {self.diameter//2}px;
-            }}
-            QFrame:hover {{
-                background: {hover};
-            }}
-        """)
+        try:
+            base = "#D66853"
+            hover = "#b54a37"
+            selected_color = "#a13e2a"
+            color = selected_color if self.selected else base
+            
+            self.setStyleSheet(f"""
+                QFrame {{
+                    background: {color};
+                    border: none;
+                    border-radius: {self.diameter//2}px;
+                }}
+                QFrame:hover {{
+                    background: {hover};
+                }}
+            """)
+        except Exception as e:
+            print(f"[DEBUG] Erreur lors de la mise à jour du style: {e}")
+
+    def set_selected(self, selected):
+        try:
+            self.selected = selected
+            self.update_style()
+        except Exception as e:
+            print(f"[DEBUG] Erreur lors de la sélection: {e}")
+
+class ContactCell(QFrame):
+    def __init__(self, nom, etat, initials, on_click=None, selected=False, parent=None):
+        super().__init__(parent)
+        self.selected = selected
+        self.setFixedHeight(68)
+        self.setMinimumWidth(320)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(18, 0, 0, 0)
+        layout.setSpacing(18)
+        # Cercle avec initiales
+        self.circle = QLabel(initials)
+        self.circle.setObjectName("initialsCircle")
+        self.circle.setFixedSize(44, 44)
+        self.circle.setAlignment(Qt.AlignCenter)
+        
+        layout.addWidget(self.circle)
+        # Bloc texte (nom, état)
+        text_vbox = QVBoxLayout()
+        self.label_nom = QLabel(nom)
+        
+        text_vbox.addWidget(self.label_nom)
+        self.label_etat = QLabel(etat)
+        
+        text_vbox.addWidget(self.label_etat)
+        layout.addLayout(text_vbox)
+        layout.addStretch(1)
+        if on_click:
+            self.mousePressEvent = lambda event: on_click()
+        
+        self.update_style()
 
     def set_selected(self, selected):
         self.selected = selected
         self.update_style()
 
-class ContactCell(QFrame):
-    def __init__(self, nom, etat, initials, on_click=None, selected=False, parent=None):
-        super().__init__(parent)
-        self.setFixedHeight(68)
-        self.setMinimumWidth(320)
+    def update_style(self):
+        bg_color = "#e5e5e5" if self.selected else "#f1f1f1"
         self.setStyleSheet(f"""
             QFrame {{
-                background: #f1f1f1;
+                background-color: {bg_color};
                 border: none;
                 border-top-right-radius: 10px;
                 border-bottom-right-radius: 10px;
                 border-top-left-radius: 0px;
                 border-bottom-left-radius: 0px;
+                margin-right: 2px;
+            }}
+            QFrame:hover {{
+                background: #e0e0e0;
             }}
         """)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(18, 0, 0, 0)
-        layout.setSpacing(18)
-        # Cercle avec initiales
-        circle = QLabel(initials)
-        circle.setFixedSize(44, 44)
-        circle.setAlignment(Qt.AlignCenter)
-        circle.setStyleSheet("""
-            background-color: #d8d8d8;
-            color: #222;
-            font-size: 20px;
-            font-weight: bold;
-            border-radius: 22px;
+        
+        # Style du cercle d'initiales
+        self.circle.setStyleSheet(f"""
+            QLabel {{
+                background-color: #d8d8d8;
+                color: #222;
+                font-size: 20px;
+                font-weight: bold;
+                border-radius: 22px;
+                border: 2px solid transparent;
+            }}
         """)
-        layout.addWidget(circle)
-        # Bloc texte (nom, état)
-        text_vbox = QVBoxLayout()
-        label_nom = QLabel(nom)
-        label_nom.setStyleSheet("font-size: 17px; color: #222; font-weight: 500;")
-        text_vbox.addWidget(label_nom)
-        label_etat = QLabel(etat)
-        label_etat.setStyleSheet("color:#555;font-size:13px;")
-        text_vbox.addWidget(label_etat)
-        layout.addLayout(text_vbox)
-        layout.addStretch(1)
-        if on_click:
-            self.mousePressEvent = lambda event: on_click()
+        
+        # Styles pour les autres widgets enfants pour s'assurer qu'ils n'héritent pas du fond
+        self.label_nom.setStyleSheet("background: transparent; font-size: 17px; color: #222; font-weight: 500;")
+        self.label_etat.setStyleSheet("background: transparent; color:#555;font-size:13px;")
 
 class Dashboard(QWidget):
     deconnexion_terminee = pyqtSignal()
@@ -220,6 +255,7 @@ class Dashboard(QWidget):
         self.left_layout.addStretch(1)
 
         btn_settings = IconTextButton(os.path.join("resources/img", "settingblanc.png"), "Paramètres")
+        btn_settings.mousePressEvent = lambda event: self.open_settings_window()
         self.left_layout.addWidget(btn_settings, alignment=Qt.AlignHCenter | Qt.AlignBottom)
         main_hlayout.addWidget(self.left_col)
 
@@ -244,12 +280,18 @@ class Dashboard(QWidget):
         # Timer pour refresh automatique
         self.timer_refresh = QTimer(self)
         self.timer_refresh.timeout.connect(self.rechercher_peripheriques)
-        self.timer_refresh.start(10000)  # 10 secondes au lieu de 5 minutes
+        self.timer_refresh.start(30000)  # 30 secondes au lieu de 10 secondes
 
         # Démarrer les services réseau
         self.network_manager.start()
         self.rechercher_peripheriques()
         self.afficher_chat(None)
+
+    def open_settings_window(self):
+        """Ouvre la fenêtre des paramètres."""
+        # On garde une référence à la fenêtre pour éviter qu'elle soit supprimée par le garbage collector
+        self.settings_win = SettingsWindow()
+        self.settings_win.show()
 
     # --- LOGIQUE RÉSEAU ---
     def _connect_network_signals(self):
@@ -262,17 +304,52 @@ class Dashboard(QWidget):
 
     def _on_peer_discovered(self, ip: str, nom: str):
         """Callback quand un nouveau pair est découvert"""
-        print(f"[DEBUG] Nouveau pair découvert: {nom} ({ip})")
+        print(f"[DEBUG] DASHBOARD: _on_peer_discovered called for IP: {ip}, Name: {nom}")
+        
+        # Mettre à jour le statut s'il est déjà dans nos conversations
+        peer_in_conversations = False
+        for conv in self.conversations:
+            if conv.get('ip') == ip:
+                conv['status'] = 'online'
+                peer_in_conversations = True
+                print(f"[DEBUG] DASHBOARD: Found matching conversation for {ip}. Changing status to online.")
+                break
+        
+        # Si le statut a changé, rafraîchir la liste des conversations
+        if peer_in_conversations:
+            QTimer.singleShot(100, self.afficher_conversations)
+
+        # Toujours rafraîchir la liste des périphériques (colonne de gauche)
         self.rechercher_peripheriques()
 
     def _on_peer_lost(self, ip: str):
         """Callback quand un pair est perdu"""
-        print(f"[DEBUG] Pair perdu: {ip}")
+        print(f"[DEBUG] DASHBOARD: _on_peer_lost called for IP: {ip}")
+
+        # Mettre à jour le statut dans la liste des conversations (colonne centrale)
+        peer_in_conversations = False
+        for conv in self.conversations:
+            if conv.get('ip') == ip:
+                print(f"[DEBUG] DASHBOARD: Found matching conversation for {ip}. Changing status to offline.")
+                conv['status'] = 'offline'
+                peer_in_conversations = True
+                break
+        
+        if not peer_in_conversations:
+            print(f"[DEBUG] DASHBOARD: No matching conversation found for {ip} in self.conversations.")
+
+        # Si le statut a changé, rafraîchir la vue
+        if peer_in_conversations:
+            print("[DEBUG] DASHBOARD: Refreshing conversations view due to peer loss.")
+            QTimer.singleShot(100, self.afficher_conversations)
+
+        # Rafraîchir la liste des périphériques (colonne de gauche) pour qu'il disparaisse
         self.rechercher_peripheriques()
+        
+        # Gérer la sélection si le pair perdu était sélectionné
         if self.selected_peripherique and self.selected_peripherique.get('ip') == ip:
             self.selected_peripherique = None
             self.selected_widget = None
-        self.afficher_chat(None)  
 
     def _on_message_received(self, sender_ip: str, message: str):
         """Callback quand un message direct est reçu"""
@@ -308,10 +385,14 @@ class Dashboard(QWidget):
         """Rafraîchit l'affichage des périphériques"""
         print(f"[DEBUG] Recherche de périphériques...")
         
-        # Nettoyer les widgets existants
+        # Nettoyer les widgets existants de manière sécurisée
         for widget in self.peripherique_widgets:
-            self.left_layout.removeWidget(widget)
-            widget.deleteLater()
+            try:
+                if widget and not widget.isHidden():
+                    self.left_layout.removeWidget(widget)
+                    widget.deleteLater()
+            except Exception as e:
+                print(f"[DEBUG] Erreur lors de la suppression du widget: {e}")
         self.peripherique_widgets.clear()
 
         # Récupérer les pairs connus du NetworkManager
@@ -320,44 +401,70 @@ class Dashboard(QWidget):
         
         for ip, peer_info in known_peers.items():
             print(f"[DEBUG] Affichage du pair: {ip} - {peer_info}")
-            circle_icon = CircleIcon(
-                os.path.join("resources/img", "laptopblanc.png"),
-                diameter=60,
-                selected=(self.selected_peripherique and self.selected_peripherique.get('ip') == ip)
-            )
-            tooltip = f"Nom : {peer_info.get('nom', 'Inconnu')}\nIP : {ip}"
-            circle_icon.setToolTip(tooltip)
-            periph = {
-                'nom': peer_info.get('nom', 'Inconnu'),
-                'ip': ip,
-                'status': peer_info.get('status', 'online')
-            }
-            circle_icon.mousePressEvent = lambda event, p=periph, w=circle_icon: self.selectionner_peripherique(p, w)
-            self.left_layout.insertWidget(2 + len(self.peripherique_widgets), circle_icon, alignment=Qt.AlignHCenter)
-            self.peripherique_widgets.append(circle_icon)
+            try:
+                circle_icon = CircleIcon(
+                    os.path.join("resources/img", "laptopblanc.png"),
+                    diameter=60,
+                    selected=(self.selected_peripherique and self.selected_peripherique.get('ip') == ip)
+                )
+                tooltip = f"Nom : {peer_info.get('nom', 'Inconnu')}\nIP : {ip}"
+                circle_icon.setToolTip(tooltip)
+                periph = {
+                    'nom': peer_info.get('nom', 'Inconnu'),
+                    'ip': ip,
+                    'status': peer_info.get('status', 'online')
+                }
+                
+                # Utiliser une méthode dédiée pour éviter les problèmes de lambda
+                circle_icon.mousePressEvent = lambda event, p=periph, w=circle_icon: self._handle_peripheral_click(p, w)
+                
+                self.left_layout.insertWidget(2 + len(self.peripherique_widgets), circle_icon, alignment=Qt.AlignHCenter)
+                self.peripherique_widgets.append(circle_icon)
+            except Exception as e:
+                print(f"[DEBUG] Erreur lors de la création du widget pour {ip}: {e}")
         
         print(f"[DEBUG] Nombre de widgets créés: {len(self.peripherique_widgets)}")
 
+    def _handle_peripheral_click(self, periph, widget):
+        """Gère le clic sur un périphérique de manière sécurisée"""
+        try:
+            if widget and not widget.isHidden():
+                self.selectionner_peripherique(periph, widget)
+        except Exception as e:
+            print(f"[DEBUG] Erreur lors du clic sur le périphérique: {e}")
+
     def selectionner_peripherique(self, periph, widget):
-        """Sélectionne un périphérique et affiche sa conversation"""
-        if self.selected_widget:
-            self.selected_widget.set_selected(False)
-        widget.set_selected(True)
-        self.selected_peripherique = periph
-        self.selected_widget = widget
-        
-        # Créer l'objet conversation et afficher le chat
-        conversation = {
-            'type': 'contact', 
-            'name': periph['nom'], 
-            'ip': periph['ip']
-        }
-        self.afficher_chat(conversation)
+        """Sélectionne un périphérique et l'ajoute à la liste des conversations."""
+        try:
+            # Gérer la sélection visuelle sur la colonne de gauche
+            if self.selected_widget and self.selected_widget != widget:
+                try:
+                    if self.selected_widget and not self.selected_widget.isHidden():
+                        self.selected_widget.set_selected(False)
+                except Exception as e:
+                    print(f"[DEBUG] Erreur lors de la désélection du widget précédent: {e}")
+            
+            if widget and not widget.isHidden():
+                widget.set_selected(True)
+                self.selected_peripherique = periph
+                self.selected_widget = widget
+
+                # Ajouter le contact à la liste des conversations (colonne centrale)
+                if not any(c['ip'] == periph['ip'] for c in self.conversations):
+                    self.conversations.append(periph)
+                    self.afficher_conversations()
+            else:
+                print(f"[DEBUG] Widget invalide ou caché, sélection annulée")
+        except Exception as e:
+            print(f"[DEBUG] Erreur lors de la sélection du périphérique: {e}")
 
     def ajouter_conversation(self):
-        if self.selected_peripherique and self.selected_peripherique not in self.conversations:
-            self.conversations.append(self.selected_peripherique)
-            self.afficher_conversations()
+        """Ouvre la fenêtre de chat pour la conversation sélectionnée dans la colonne centrale."""
+        if self.selected_conversation:
+            self.afficher_chat(self.selected_conversation)
+        else:
+            QMessageBox.information(self, "Aucune conversation sélectionnée", 
+                                    "Veuillez d'abord sélectionner un contact dans la liste centrale.")
 
     def afficher_conversations(self):
         # Nettoyer la colonne centrale
@@ -365,16 +472,25 @@ class Dashboard(QWidget):
             widget = self.center_layout.itemAt(i).widget()
             if widget:
                 widget.setParent(None)
+                widget.deleteLater()
+
+        print("[DEBUG] DASHBOARD: --- Refreshing conversations view ---")
+        for c in self.conversations:
+            print(f"  - Contact: {c.get('nom')}, IP: {c.get('ip')}, Status: {c.get('status')}")
+        print("[DEBUG] DASHBOARD: ------------------------------------")
 
         # Afficher les conversations individuelles
         for conv in self.conversations:
             initials = ''.join([x[0] for x in conv['nom'].split()][:2]).upper()
             etat = conv.get('status', 'Connecté via réseau local')
+            is_selected = self.selected_conversation and self.selected_conversation['ip'] == conv['ip']
+            
             cell = ContactCell(
                 conv['nom'], 
                 f"AES-256 – {etat}", 
                 initials,
-                on_click=lambda c=conv: self.afficher_chat({'type': 'contact', 'name': c['nom'], 'ip': c['ip']})
+                selected=is_selected,
+                on_click=lambda c=conv: self.selectionner_conversation(c)
             )
             self.center_layout.addWidget(cell)
 
@@ -389,6 +505,17 @@ class Dashboard(QWidget):
                 on_click=lambda g=group_name, gi=group_info: self.afficher_chat({'type': 'group', 'name': g, 'info': gi})
             )
             self.center_layout.addWidget(cell)
+
+    def selectionner_conversation(self, conv_data):
+        """Met en mémoire la conversation sélectionnée et rafraîchit l'affichage."""
+        # Créer un objet conversation avec le type, pour être compatible avec afficher_chat
+        self.selected_conversation = {
+            'type': 'contact',
+            'name': conv_data.get('nom'),
+            'ip': conv_data.get('ip')
+        }
+        # Rafraîchir l'affichage pour montrer la sélection
+        self.afficher_conversations()
 
     def afficher_chat(self, conv):
         # Nettoyer la zone de chat
@@ -578,15 +705,15 @@ class Dashboard(QWidget):
         input_layout.addWidget(self.message_input)
 
         send_btn = QPushButton()
-        send_btn.setIcon(QIcon(os.path.join("resources/img", "send.png")))
-        send_btn.setIconSize(QSize(24, 24))
+        send_btn.setIcon(QIcon(os.path.join("resources/img", "plane.png")))
+        send_btn.setFixedSize(40, 40)
+        send_btn.setIconSize(QSize(22, 22))
         send_btn.setCursor(Qt.PointingHandCursor)
         send_btn.setStyleSheet("""
             QPushButton {
                 background: #D66853;
-                border-radius: 6px;
-                padding: 8px;
-                min-width: 40px;
+                border-radius: 20px;
+                padding: 0px;
             }
             QPushButton:hover { background: #c55a47; }
         """)

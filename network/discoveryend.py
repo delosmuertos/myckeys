@@ -8,11 +8,12 @@ BROADCAST_INTERVAL = 5
 BUFFER_SIZE = 1024
 
 class NetworkDiscovery:
-    def __init__(self, username="User", on_peer_discovered=None):
+    def __init__(self, username="User", on_peer_discovered=None, on_peer_lost=None):
         self.username = username
         self.known_peers = {}  # ip -> {nom, ip, status, last_seen}
         self.stop_event = threading.Event()
         self.on_peer_discovered = on_peer_discovered  # callback(ip, nom)
+        self.on_peer_lost = on_peer_lost  # callback(ip)
         self.peer_timeout = 30  # 30 secondes de timeout pour un pair
 
     def get_local_ip(self):
@@ -100,6 +101,9 @@ class NetworkDiscovery:
         for ip in inactive_peers:
             print(f"[DEBUG] Suppression du pair inactif: {ip}")
             del self.known_peers[ip]
+            if self.on_peer_lost:
+                print(f"[DEBUG] Appel du callback on_peer_lost pour {ip}")
+                self.on_peer_lost(ip)
 
     def start(self):
         """Démarre les threads de broadcast et d'écoute"""

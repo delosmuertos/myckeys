@@ -51,7 +51,8 @@ class NetworkManager(QObject):
             # Découverte réseau
             self.discovery = NetworkDiscovery(
                 username=self.username,
-                on_peer_discovered=self._on_peer_discovered
+                on_peer_discovered=self._on_peer_discovered,
+                on_peer_lost=self._on_peer_lost_discovery
             )
             
             # Gestionnaire de clés
@@ -136,20 +137,31 @@ class NetworkManager(QObject):
         self.peer_discovered.emit(ip, nom)
         self.logger.info(f"Pair découvert: {nom} ({ip})", "NETWORK_MANAGER")
     
+    def _on_peer_lost_discovery(self, ip: str):
+        """Callback quand un pair est perdu, venant du module de découverte."""
+        if ip in self.known_peers:
+            self.logger.info(f"Pair perdu: {self.known_peers[ip].get('nom', ip)} ({ip})", "NETWORK_MANAGER")
+            del self.known_peers[ip]
+            self.peer_lost.emit(ip)
+        else:
+            self.logger.warning(f"Tentative de suppression d'un pair inconnu: {ip}", "NETWORK_MANAGER")
+    
     def _on_message_received(self, sender_ip: str, message: str):
         """Callback quand un message direct est reçu"""
-        print(f"[DEBUG] NetworkManager - Message reçu de {sender_ip}: {message}")
+        print(f"[DEBUG] NetworkManager - Message brut reçu de {sender_ip}: {message}")
         
-        # Vérifier que le message est bien traité par le MessageManager
+        plaintext_message = None
         if hasattr(self.message_manager, 'traiter_message_recu'):
-            success = self.message_manager.traiter_message_recu(message, sender_ip)
-            print(f"[DEBUG] NetworkManager - Traitement du message par MessageManager: {'succès' if success else 'échec'}")
+            plaintext_message = self.message_manager.traiter_message_recu(message, sender_ip)
         else:
             print("[ERROR] NetworkManager - MessageManager n'a pas la méthode traiter_message_recu")
             
-        # Émettre le signal pour l'interface
-        self.message_received.emit(sender_ip, message)
-        self.logger.info(f"Message reçu de {sender_ip}: {message}", "NETWORK_MANAGER")
+        # Émettre le signal pour l'interface seulement si le message a été traité avec succès
+        if plaintext_message:
+            self.message_received.emit(sender_ip, plaintext_message)
+            self.logger.info(f"Message traité de {sender_ip}: {plaintext_message}", "NETWORK_MANAGER")
+        else:
+            self.logger.warning(f"Le message de {sender_ip} n'a pas pu être traité ou était vide.", "NETWORK_MANAGER")
     
     def _on_group_message_received(self, group_name: str, sender_ip: str, message: str):
         """Callback quand un message de groupe est reçu"""
