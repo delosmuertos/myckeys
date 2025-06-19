@@ -1,4 +1,6 @@
 import socket
+import json
+import os
 from typing import Dict, List, Tuple, Optional
 
 class GroupManager:
@@ -8,6 +10,13 @@ class GroupManager:
         self.log = log_func if log_func else lambda msg: None
         self.groupes = {}
         self.TCP_PORT = 50001
+        
+        # Fichier de persistance
+        self.storage_dir = os.path.join(os.path.dirname(__file__), '..', 'storage')
+        self.groups_file = os.path.join(self.storage_dir, 'groups.json')
+        
+        # Charger les groupes sauvegardés
+        self._load_groups()
 
     def creer_groupe(self, nom: str, membres: List[str]) -> bool:
         """Crée un nouveau groupe avec les membres spécifiés"""
@@ -28,6 +37,9 @@ class GroupManager:
             "messages": []
         }
         self.log(f"[INFO] Groupe '{nom}' créé avec les membres : {membres}")
+        
+        # Sauvegarder les groupes
+        self._save_groups()
 
         # Notification des autres membres
         for ip in membres:
@@ -75,6 +87,10 @@ class GroupManager:
         self.groupes[nom]["messages"].append(("Moi", msg))
         self.log(f"[DEBUG] Message ajouté localement dans groupe '{nom}'")
         self.log(f"[INFO] Message envoyé au groupe '{nom}' : {msg}")
+        
+        # Sauvegarder les groupes
+        self._save_groups()
+        
         return True
 
     def _envoyer_message_groupe(self, ip: str, nom_groupe: str, msg: str) -> bool:
@@ -111,6 +127,10 @@ class GroupManager:
             self.log(f"[DEBUG] Message de groupe reçu de {addr} pour '{nom}' : {msg}")
             self.groupes[nom]["messages"].append((addr, msg))
             self.log(f"[INFO] Message de {addr} reçu dans le groupe '{nom}' : {msg}")
+            
+            # Sauvegarder les groupes
+            self._save_groups()
+            
             return True
         except Exception as e:
             self.log(f"[ERREUR] Mauvais format de message GROUPMSG : {e}")
@@ -135,6 +155,9 @@ class GroupManager:
             nouveaux_membres = set(membres)
             self.groupes[nom]["membres"] = list(anciens_membres.union(nouveaux_membres))
             self.log(f"[INFO] Groupe '{nom}' mis à jour avec membres : {self.groupes[nom]['membres']}")
+            
+            # Sauvegarder les groupes
+            self._save_groups()
 
             # Échange de clés publiques avec les autres membres
             my_ip = self.get_local_ip()
@@ -190,4 +213,37 @@ class GroupManager:
             self.groupes[nom]["membres"].remove(ip)
             self.log(f"[INFO] Membre {ip} retiré du groupe '{nom}'")
             return True
-        return False 
+        return False
+
+    def clear_group_messages(self, nom: str) -> bool:
+        """Efface tous les messages d'un groupe spécifique"""
+        if nom in self.groupes:
+            self.groupes[nom]["messages"].clear()
+            self.log(f"[INFO] Tous les messages du groupe '{nom}' ont été effacés")
+            # Sauvegarder les groupes
+            self._save_groups()
+            return True
+        return False
+
+    def clear_all_group_messages(self) -> bool:
+        """Efface tous les messages de tous les groupes"""
+        for nom in self.groupes:
+            self.groupes[nom]["messages"].clear()
+        self.log(f"[INFO] Tous les messages de tous les groupes ont été effacés")
+        # Sauvegarder les groupes
+        self._save_groups()
+        return True
+
+    def _load_groups(self):
+        """Charge les groupes sauvegardés"""
+        if os.path.exists(self.groups_file):
+            with open(self.groups_file, 'r') as f:
+                self.groupes = json.load(f)
+        else:
+            self.groupes = {}
+
+    def _save_groups(self):
+        """Sauvegarde les groupes"""
+        os.makedirs(self.storage_dir, exist_ok=True)
+        with open(self.groups_file, 'w') as f:
+            json.dump(self.groupes, f, indent=2) 

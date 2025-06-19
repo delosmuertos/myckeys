@@ -638,7 +638,17 @@ class Dashboard(QWidget):
             QMessageBox.No
         )
         if reply == QMessageBox.Yes:
+            # Effacer les messages dans le NetworkManager
             self.network_manager.clear_messages()
+            
+            # Rafraîchir l'affichage si une conversation est sélectionnée
+            if self.selected_conversation:
+                print(f"[DEBUG] Rafraîchissement de l'affichage après effacement sécurisé")
+                self.afficher_chat(self.selected_conversation)
+            else:
+                # Si aucune conversation n'est sélectionnée, afficher le message d'accueil
+                self.afficher_chat(None)
+            
             QMessageBox.information(self, "Info", "Effacement sécurisé effectué")
 
     def deconnexion(self):

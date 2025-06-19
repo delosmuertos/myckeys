@@ -1,5 +1,6 @@
 import socket
 import json
+import os
 from typing import Dict, List, Tuple, Optional, Callable
 from app.crypto_manager import CryptoManager
 
@@ -7,11 +8,20 @@ class MessageManager:
     def __init__(self, get_local_ip_func, log_func=None):
         self.get_local_ip = get_local_ip_func
         self.log = log_func if log_func else lambda msg: None
-        self.messages = []
         self.public_keys = {}
         self.ma_cle_publique = ""
+        self.messages = []
         self.TCP_PORT = 50001
         self.BUFFER_SIZE = 1024
+        
+        # Fichiers de persistance
+        self.storage_dir = os.path.join(os.path.dirname(__file__), '..', 'storage')
+        self.messages_file = os.path.join(self.storage_dir, 'messages.json')
+        self.keys_file = os.path.join(self.storage_dir, 'public_keys.json')
+        
+        # Charger les données sauvegardées
+        self._load_messages()
+        self._load_public_keys()
 
     def set_ma_cle_publique(self, cle_publique: str) -> None:
         """Définit la clé publique locale"""
@@ -44,6 +54,8 @@ class MessageManager:
                     self.public_keys[ip] = key
                     self.log(f"[DEBUG] Échange de clé réussi avec {ip}")
                     self.log(f"[INFO] Clé publique reçue de {ip}")
+                    # Sauvegarder les clés publiques
+                    self._save_public_keys()
                     return True
                 else:
                     self.log(f"[ERREUR] Réponse inattendue lors de l'échange de clé avec {ip}: {data}")
@@ -94,6 +106,8 @@ class MessageManager:
                 self.messages.append((local_ip, msg))
                 print(f"[DEBUG] MessageManager - Message envoyé stocké: ({local_ip}, {msg})")
                 print(f"[DEBUG] MessageManager - État des messages après envoi: {self.messages}")
+                # Sauvegarder les messages
+                self._save_messages()
                 
                 return True
         except Exception as e:
@@ -137,17 +151,23 @@ class MessageManager:
                     # Ajouter le message déchiffré à la liste
                     self.messages.append((addr, plaintext))
                     print(f"[DEBUG] MessageManager - Message déchiffré ajouté, nouvel état: {self.messages}")
+                    # Sauvegarder les messages
+                    self._save_messages()
                     return True
                 else:
                     # Message non chiffré (pour la compatibilité)
                     self.messages.append((addr, data))
                     self.log(f"[INFO] Message non chiffré reçu de {addr} : {data}")
+                    # Sauvegarder les messages
+                    self._save_messages()
                     return True
                     
             except json.JSONDecodeError:
                 # Message non chiffré (pour la compatibilité)
                 self.messages.append((addr, data))
                 self.log(f"[INFO] Message non chiffré reçu de {addr} : {data}")
+                # Sauvegarder les messages
+                self._save_messages()
                 return True
                 
         except Exception as e:
@@ -205,6 +225,7 @@ class MessageManager:
     def clear_messages(self) -> None:
         """Efface tous les messages"""
         self.messages.clear()
+        self._save_messages()
         self.log("[INFO] Tous les messages ont été effacés")
 
     def clear_messages_from(self, ip: str) -> int:
@@ -230,4 +251,32 @@ class MessageManager:
 
     def search_messages(self, keyword: str) -> List[Tuple[str, str]]:
         """Recherche des messages contenant un mot-clé"""
-        return [(sender, msg) for sender, msg in self.messages if keyword.lower() in msg.lower()] 
+        return [(sender, msg) for sender, msg in self.messages if keyword.lower() in msg.lower()]
+
+    def _load_messages(self) -> None:
+        """Charge les messages depuis le fichier de persistance"""
+        if os.path.exists(self.messages_file):
+            with open(self.messages_file, 'r') as f:
+                self.messages = json.load(f)
+        else:
+            self.messages = []
+
+    def _load_public_keys(self) -> None:
+        """Charge les clés publiques depuis le fichier de persistance"""
+        if os.path.exists(self.keys_file):
+            with open(self.keys_file, 'r') as f:
+                self.public_keys = json.load(f)
+        else:
+            self.public_keys = {}
+
+    def _save_messages(self) -> None:
+        """Sauvegarde les messages dans le fichier de persistance"""
+        os.makedirs(self.storage_dir, exist_ok=True)
+        with open(self.messages_file, 'w') as f:
+            json.dump(self.messages, f, indent=2)
+
+    def _save_public_keys(self) -> None:
+        """Sauvegarde les clés publiques dans le fichier de persistance"""
+        os.makedirs(self.storage_dir, exist_ok=True)
+        with open(self.keys_file, 'w') as f:
+            json.dump(self.public_keys, f, indent=2) 

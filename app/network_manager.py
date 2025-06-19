@@ -250,9 +250,21 @@ class NetworkManager(QObject):
         return self.message_manager.get_public_keys()
     
     def clear_messages(self):
-        """Efface tous les messages"""
+        """Efface tous les messages (directs et de groupe)"""
+        # Effacer les messages directs
         self.message_manager.clear_messages()
-        self.logger.info("Tous les messages ont été effacés", "NETWORK_MANAGER")
+        
+        # Effacer les messages de groupe
+        if hasattr(self.group_manager, 'clear_all_group_messages'):
+            self.group_manager.clear_all_group_messages()
+        else:
+            # Si la méthode n'existe pas, effacer groupe par groupe
+            groups = self.group_manager.get_groupes()
+            for group_name in groups:
+                if hasattr(self.group_manager, 'clear_group_messages'):
+                    self.group_manager.clear_group_messages(group_name)
+        
+        self.logger.info("Tous les messages (directs et de groupe) ont été effacés", "NETWORK_MANAGER")
     
     def get_logs(self, level: Optional[LogLevel] = None, limit: Optional[int] = None) -> List:
         """Retourne les logs"""
