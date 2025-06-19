@@ -455,12 +455,18 @@ class Dashboard(QWidget):
         if conv['type'] == 'contact':
             messages = self.network_manager.get_messages()
             print(f"[DEBUG] Messages récupérés pour {conv['ip']}: {messages}")
-            print(f"[DEBUG] Type des messages: {type(messages)}")
             
-            # Filtrer les messages pour ce contact
-            contact_messages = [msg for msg in messages if msg[0] == conv['ip']]
+            # Filtrer les messages pour ce contact (envoyés ET reçus)
+            contact_messages = []
+            for sender_ip, message_content in messages:
+                # Messages envoyés par nous à ce contact
+                if sender_ip == self.network_manager._get_local_ip() and conv['ip'] in self.network_manager.get_known_peers():
+                    contact_messages.append(('sent', message_content))
+                # Messages reçus de ce contact
+                elif sender_ip == conv['ip']:
+                    contact_messages.append(('received', message_content))
+            
             print(f"[DEBUG] Messages filtrés pour {conv['ip']}: {contact_messages}")
-            print(f"[DEBUG] Nombre de messages filtrés: {len(contact_messages)}")
             
             if not contact_messages:
                 # Ajouter un message d'information
@@ -469,35 +475,49 @@ class Dashboard(QWidget):
                 info_label.setAlignment(Qt.AlignCenter)
                 messages_layout.addWidget(info_label)
             
-            for sender_ip, message_content in contact_messages:
-                print(f"[DEBUG] Affichage message - De: {sender_ip}, Message: {message_content}")
+            for msg_type, message_content in contact_messages:
                 msg_widget = QFrame()
-                msg_widget.setStyleSheet("""
-                    QFrame {
-                        background: #f8f9fa;
-                        border-radius: 10px;
-                        padding: 12px;
-                        margin: 4px 0;
-                    }
-                """)
+                
+                # Style différent selon le type de message
+                if msg_type == 'sent':
+                    msg_widget.setStyleSheet("""
+                        QFrame {
+                            background: #D66853;
+                            border-radius: 10px;
+                            padding: 12px;
+                            margin: 4px 0;
+                        }
+                    """)
+                    sender_name = "Vous"
+                    text_color = "white"
+                else:  # received
+                    msg_widget.setStyleSheet("""
+                        QFrame {
+                            background: #f8f9fa;
+                            border-radius: 10px;
+                            padding: 12px;
+                            margin: 4px 0;
+                        }
+                    """)
+                    sender_name = conv['name']
+                    text_color = "#333"
+                
                 msg_layout = QVBoxLayout(msg_widget)
                 msg_layout.setContentsMargins(12, 8, 12, 8)
                 
                 # En-tête du message avec le nom de l'expéditeur
-                sender_name = self.network_manager.get_known_peers().get(sender_ip, {}).get('nom', 'Inconnu')
-                print(f"[DEBUG] Nom de l'expéditeur: {sender_name}")
                 sender_label = QLabel(f"<b>{sender_name}</b>")
-                sender_label.setStyleSheet("color: #666; font-size: 13px;")
+                sender_label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
                 msg_layout.addWidget(sender_label)
                 
                 # Contenu du message
                 msg_content = QLabel(message_content)
                 msg_content.setWordWrap(True)
-                msg_content.setStyleSheet("color: #333; font-size: 14px; margin-top: 4px;")
+                msg_content.setStyleSheet(f"color: {text_color}; font-size: 14px; margin-top: 4px;")
                 msg_layout.addWidget(msg_content)
                 
                 messages_layout.addWidget(msg_widget)
-                print("[DEBUG] Widget de message ajouté au layout")
+                print(f"[DEBUG] Message ajouté au layout - Type: {msg_type}, De: {sender_name}, Message: {message_content}")
         else:  # groupe
             group_messages = self.network_manager.get_group_messages(conv['name'])
             print(f"[DEBUG] Messages de groupe récupérés pour {conv['name']}: {group_messages}")

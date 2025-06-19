@@ -65,6 +65,13 @@ class MessageManager:
                 s.connect((ip, self.TCP_PORT))
                 s.send(msg.encode())
                 self.log(f"[INFO] Message envoyé à {ip} : {msg}")
+                
+                # Stocker le message envoyé dans la liste locale
+                local_ip = self.get_local_ip()
+                self.messages.append((local_ip, msg))
+                print(f"[DEBUG] MessageManager - Message envoyé stocké: ({local_ip}, {msg})")
+                print(f"[DEBUG] MessageManager - État des messages après envoi: {self.messages}")
+                
                 return True
         except Exception as e:
             self.log(f"[ERREUR] Échec de l'envoi du message à {ip} : {e}")
