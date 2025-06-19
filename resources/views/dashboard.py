@@ -455,12 +455,22 @@ class Dashboard(QWidget):
         if conv['type'] == 'contact':
             messages = self.network_manager.get_messages()
             print(f"[DEBUG] Messages récupérés pour {conv['ip']}: {messages}")
+            print(f"[DEBUG] Type des messages: {type(messages)}")
             
             # Filtrer les messages pour ce contact
             contact_messages = [msg for msg in messages if msg[0] == conv['ip']]
             print(f"[DEBUG] Messages filtrés pour {conv['ip']}: {contact_messages}")
+            print(f"[DEBUG] Nombre de messages filtrés: {len(contact_messages)}")
+            
+            if not contact_messages:
+                # Ajouter un message d'information
+                info_label = QLabel("Aucun message dans cette conversation")
+                info_label.setStyleSheet("color: #999; font-style: italic;")
+                info_label.setAlignment(Qt.AlignCenter)
+                messages_layout.addWidget(info_label)
             
             for sender_ip, message_content in contact_messages:
+                print(f"[DEBUG] Affichage message - De: {sender_ip}, Message: {message_content}")
                 msg_widget = QFrame()
                 msg_widget.setStyleSheet("""
                     QFrame {
@@ -475,6 +485,7 @@ class Dashboard(QWidget):
                 
                 # En-tête du message avec le nom de l'expéditeur
                 sender_name = self.network_manager.get_known_peers().get(sender_ip, {}).get('nom', 'Inconnu')
+                print(f"[DEBUG] Nom de l'expéditeur: {sender_name}")
                 sender_label = QLabel(f"<b>{sender_name}</b>")
                 sender_label.setStyleSheet("color: #666; font-size: 13px;")
                 msg_layout.addWidget(sender_label)
@@ -486,6 +497,7 @@ class Dashboard(QWidget):
                 msg_layout.addWidget(msg_content)
                 
                 messages_layout.addWidget(msg_widget)
+                print("[DEBUG] Widget de message ajouté au layout")
         else:  # groupe
             group_messages = self.network_manager.get_group_messages(conv['name'])
             print(f"[DEBUG] Messages de groupe récupérés pour {conv['name']}: {group_messages}")

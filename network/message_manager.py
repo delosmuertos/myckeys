@@ -81,10 +81,23 @@ class MessageManager:
     def traiter_message_recu(self, data: str, addr: str) -> bool:
         """Traite un message direct reçu"""
         try:
+            print(f"[DEBUG] MessageManager - Traitement du message reçu de {addr}: {data}")
+            print(f"[DEBUG] MessageManager - État des messages avant ajout: {self.messages}")
+            
+            # Vérifier si le message n'est pas vide
+            if not data or not addr:
+                print("[DEBUG] MessageManager - Message ou adresse vide, ignoré")
+                return False
+                
+            # Ajouter le message à la liste
             self.messages.append((addr, data))
+            print(f"[DEBUG] MessageManager - Message ajouté, nouvel état: {self.messages}")
+            
             self.log(f"[INFO] Message reçu de {addr} : {data}")
             return True
+            
         except Exception as e:
+            print(f"[ERROR] MessageManager - Erreur lors du traitement du message: {str(e)}")
             self.log(f"[ERREUR] Erreur lors du traitement du message de {addr} : {e}")
             return False
 
@@ -116,6 +129,7 @@ class MessageManager:
 
     def get_messages(self) -> List[Tuple[str, str]]:
         """Retourne tous les messages reçus"""
+        print(f"[DEBUG] MessageManager - get_messages appelé, messages disponibles: {self.messages}")
         return self.messages.copy()
 
     def get_messages_from(self, ip: str) -> List[Tuple[str, str]]:

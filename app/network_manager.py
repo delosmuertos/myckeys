@@ -138,6 +138,16 @@ class NetworkManager(QObject):
     
     def _on_message_received(self, sender_ip: str, message: str):
         """Callback quand un message direct est reçu"""
+        print(f"[DEBUG] NetworkManager - Message reçu de {sender_ip}: {message}")
+        
+        # Vérifier que le message est bien traité par le MessageManager
+        if hasattr(self.message_manager, 'traiter_message_recu'):
+            success = self.message_manager.traiter_message_recu(message, sender_ip)
+            print(f"[DEBUG] NetworkManager - Traitement du message par MessageManager: {'succès' if success else 'échec'}")
+        else:
+            print("[ERROR] NetworkManager - MessageManager n'a pas la méthode traiter_message_recu")
+            
+        # Émettre le signal pour l'interface
         self.message_received.emit(sender_ip, message)
         self.logger.info(f"Message reçu de {sender_ip}: {message}", "NETWORK_MANAGER")
     
