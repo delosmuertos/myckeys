@@ -12,6 +12,7 @@ import socket
 import threading
 import time
 import os
+from app.crypto_manager import CryptoManager
 
 # Variables globales servant pour le réseau, les ports, ...
 BROADCAST_PORT = 50000
@@ -65,10 +66,10 @@ def listen_for_peers():
 # Soccupe de tout ce qui est récepption de message venant du réseau, clés et messages
 def handle_client(conn, addr):
     try:
-        data = conn.recv(BUFFER_SIZE).decode()
-        if data.startswith("PUBKEY:"):
+        data = conn.recv(BUFFER_SIZE)
+        if data.startswith(b"PUBKEY:"):
             peer_ip = addr[0]
-            key = data.split(":", 1)[1]
+            key = data.split(b":", 1)[1].decode()
             public_keys[peer_ip] = key
             logs.append(f"[INFO] Clé publique reçue de {peer_ip}")
             if ma_cle_publique:
@@ -78,8 +79,23 @@ def handle_client(conn, addr):
                 except Exception as e:
                     logs.append(f"[ERREUR] Échec de la réponse de clé publique à {peer_ip} : {e}")
         else:
-            messages.append((addr[0], data))
-            logs.append(f"[INFO] Message reçu de {addr[0]} : {data}")
+            # Lecture du format : taille clé (2) | clé chiffrée | IV (16) | taille msg (4) | msg chiffré
+            try:
+                idx = 0
+                key_len = int.from_bytes(data[idx:idx+2], 'big')
+                idx += 2
+                encrypted_key = data[idx:idx+key_len]
+                idx += key_len
+                iv = data[idx:idx+16]
+                idx += 16
+                msg_len = int.from_bytes(data[idx:idx+4], 'big')
+                idx += 4
+                ciphertext = data[idx:idx+msg_len]
+                plaintext = CryptoManager.hybrid_decrypt(encrypted_key, iv, ciphertext)
+                messages.append((addr[0], plaintext.decode(errors='replace')))
+                logs.append(f"[INFO] Message chiffré reçu de {addr[0]}")
+            except Exception as e:
+                logs.append(f"[ERREUR] Message chiffré mal formé ou erreur de déchiffrement : {e}")
     except Exception as e:
         logs.append(f"[ERREUR] Connexion entrante mal formée : {e}")
     finally:
@@ -98,7 +114,7 @@ def start_tcp_server():
             except socket.timeout:
                 continue
 
-# Logique derrière l'échange de clé publiques lors du premier envoi de message entre deux nouveaux pairs
+# Logique derrière l'échange de clés publiques lors du premier envoi de message entre deux nouveaux pairs
 def echanger_cles_publiques(ip):
     if ip in public_keys:
         return True
@@ -129,10 +145,17 @@ def envoyer_message(ip, msg):
         logs.append(f"[ERREUR] Envoi de message annulé, clé publique non échangée avec {ip}")
         return
     try:
+        cert_pem = public_keys[ip].encode()  # On suppose que la clé publique reçue est le PEM du certificat
+        data = msg.encode()
+        hybrid = CryptoManager.hybrid_encrypt(cert_pem, data)
+        # Format d'envoi : taille clé chiffrée (2 octets) | clé chiffrée | IV (16) | taille msg (4 octets) | msg chiffré
+        to_send = len(hybrid['encrypted_key']).to_bytes(2, 'big') + hybrid['encrypted_key']
+        to_send += hybrid['iv']
+        to_send += len(hybrid['ciphertext']).to_bytes(4, 'big') + hybrid['ciphertext']
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((ip, TCP_PORT))
-            s.send(msg.encode())
-            logs.append(f"[INFO] Message envoyé à {ip} : {msg}")
+            s.send(to_send)
+            logs.append(f"[INFO] Message chiffré envoyé à {ip}")
     except Exception as e:
         logs.append(f"[ERREUR] Échec de l'envoi du message à {ip} : {e}")
 

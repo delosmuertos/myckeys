@@ -92,7 +92,7 @@ class ContactCell(QFrame):
         layout.setContentsMargins(18, 0, 0, 0)
         layout.setSpacing(18)
         # Cercle avec initiales
-        circle = QLabel(initials)
+        circle = QLabel(initiales)
         circle.setFixedSize(44, 44)
         circle.setAlignment(Qt.AlignCenter)
         circle.setStyleSheet("""
@@ -231,6 +231,7 @@ class Dashboard(QWidget):
         self.left_layout.addStretch(1)
         btn_settings = IconTextButton(os.path.join("resources/img", "settingblanc.png"), "Paramètres")
         self.left_layout.addWidget(btn_settings, alignment=Qt.AlignHCenter | Qt.AlignBottom)
+        btn_settings.mousePressEvent = lambda event: self.open_settings()
         main_hlayout.addWidget(self.left_col)
         # Colonne centrale pour les conversations
         self.center_col = QFrame()
@@ -409,4 +410,10 @@ class Dashboard(QWidget):
         from resources.views.auth_window import AuthWindow
         self.close()
         self.auth_window = AuthWindow()
-        self.auth_window.show() 
+        self.auth_window.show()
+
+    def open_settings(self):
+        from resources.views.settings_window import SettingsWindow
+        self.settings_window = SettingsWindow()
+        self.settings_window.setAttribute(Qt.WA_DeleteOnClose)
+        self.settings_window.show()
