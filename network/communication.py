@@ -13,6 +13,10 @@ class PeerCommunicator:
         self.groupes = {}
         self.messages = []
         self.stop_event = threading.Event()
+        
+        # Callbacks pour les messages reçus
+        self.on_message_received = None
+        self.on_group_message_received = None
 
     def handle_client(self, conn, addr):
         try:
@@ -51,6 +55,11 @@ class PeerCommunicator:
                         self.groupes[nom] = {"membres": [addr[0]], "messages": []}
                     self.groupes[nom]["messages"].append((addr[0], msg))
                     self.log(f"[INFO] Message de {addr[0]} reçu dans le groupe '{nom}' : {msg}")
+                    
+                    # Appeler le callback pour les messages de groupe
+                    if self.on_group_message_received:
+                        self.on_group_message_received(nom, addr[0], msg)
+                        
                 except Exception as e:
                     self.log(f"[ERREUR] Mauvais format de message GROUPMSG : {e}")
                 return
@@ -71,8 +80,13 @@ class PeerCommunicator:
                     self.log(f"[ERREUR] Mauvais format de message JOINGROUP : {e}")
                 return
             else:
+                # Message direct reçu
                 self.messages.append((addr[0], data))
                 self.log(f"[INFO] Message reçu de {addr[0]} : {data}")
+                
+                # Appeler le callback pour les messages directs
+                if self.on_message_received:
+                    self.on_message_received(addr[0], data)
         except Exception as e:
             self.log(f"[ERREUR] Connexion entrante mal formée : {e}")
         finally:
