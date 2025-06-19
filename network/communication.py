@@ -80,7 +80,7 @@ class PeerCommunicator:
                     self.log(f"[ERREUR] Mauvais format de message JOINGROUP : {e}")
                 return
             else:
-                # Message direct reçu
+                # Message direct reçu (peut être chiffré ou non)
                 self.messages.append((addr[0], data))
                 self.log(f"[INFO] Message reçu de {addr[0]} : {data}")
                 

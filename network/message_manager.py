@@ -1,5 +1,7 @@
 import socket
+import json
 from typing import Dict, List, Tuple, Optional, Callable
+from app.crypto_manager import CryptoManager
 
 class MessageManager:
     def __init__(self, get_local_ip_func, log_func=None):
@@ -54,19 +56,40 @@ class MessageManager:
             return False
 
     def envoyer_message(self, ip: str, msg: str) -> bool:
-        """Envoie un message direct à un pair"""
+        """Envoie un message direct chiffré à un pair"""
         # Vérification si l'échange de clé à bien eu lieu
         if not self.echanger_cles_publiques(ip):
             self.log(f"[ERREUR] Envoi de message annulé, clé publique non échangée avec {ip}")
             return False
             
         try:
+            # Récupérer la clé publique du destinataire
+            if ip not in self.public_keys:
+                self.log(f"[ERREUR] Clé publique manquante pour {ip}")
+                return False
+                
+            recipient_public_key = self.public_keys[ip]
+            
+            # Chiffrer le message avec la clé publique du destinataire
+            encrypted_data = CryptoManager.hybrid_encrypt(
+                recipient_public_key.encode(), 
+                msg.encode()
+            )
+            
+            # Préparer le message chiffré pour l'envoi
+            encrypted_message = {
+                'type': 'ENCRYPTED_MESSAGE',
+                'encrypted_key': encrypted_data['encrypted_key'].hex(),
+                'iv': encrypted_data['iv'].hex(),
+                'ciphertext': encrypted_data['ciphertext'].hex()
+            }
+            
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((ip, self.TCP_PORT))
-                s.send(msg.encode())
-                self.log(f"[INFO] Message envoyé à {ip} : {msg}")
+                s.send(json.dumps(encrypted_message).encode())
+                self.log(f"[INFO] Message chiffré envoyé à {ip} : {msg}")
                 
-                # Stocker le message envoyé dans la liste locale
+                # Stocker le message envoyé dans la liste locale (en clair pour l'affichage)
                 local_ip = self.get_local_ip()
                 self.messages.append((local_ip, msg))
                 print(f"[DEBUG] MessageManager - Message envoyé stocké: ({local_ip}, {msg})")
@@ -74,7 +97,7 @@ class MessageManager:
                 
                 return True
         except Exception as e:
-            self.log(f"[ERREUR] Échec de l'envoi du message à {ip} : {e}")
+            self.log(f"[ERREUR] Échec de l'envoi du message chiffré à {ip} : {e}")
             return False
 
     def envoyer_message_multicast(self, ips: List[str], msg: str) -> Dict[str, bool]:
@@ -86,7 +109,7 @@ class MessageManager:
         return resultats
 
     def traiter_message_recu(self, data: str, addr: str) -> bool:
-        """Traite un message direct reçu"""
+        """Traite un message direct chiffré reçu"""
         try:
             print(f"[DEBUG] MessageManager - Traitement du message reçu de {addr}: {data}")
             print(f"[DEBUG] MessageManager - État des messages avant ajout: {self.messages}")
@@ -95,14 +118,38 @@ class MessageManager:
             if not data or not addr:
                 print("[DEBUG] MessageManager - Message ou adresse vide, ignoré")
                 return False
+            
+            # Essayer de parser le message comme JSON (message chiffré)
+            try:
+                message_data = json.loads(data)
+                if message_data.get('type') == 'ENCRYPTED_MESSAGE':
+                    # Déchiffrer le message
+                    encrypted_key = bytes.fromhex(message_data['encrypted_key'])
+                    iv = bytes.fromhex(message_data['iv'])
+                    ciphertext = bytes.fromhex(message_data['ciphertext'])
+                    
+                    # Déchiffrer avec notre clé privée
+                    decrypted_message = CryptoManager.hybrid_decrypt(encrypted_key, iv, ciphertext)
+                    plaintext = decrypted_message.decode()
+                    
+                    self.log(f"[INFO] Message déchiffré reçu de {addr} : {plaintext}")
+                    
+                    # Ajouter le message déchiffré à la liste
+                    self.messages.append((addr, plaintext))
+                    print(f"[DEBUG] MessageManager - Message déchiffré ajouté, nouvel état: {self.messages}")
+                    return True
+                else:
+                    # Message non chiffré (pour la compatibilité)
+                    self.messages.append((addr, data))
+                    self.log(f"[INFO] Message non chiffré reçu de {addr} : {data}")
+                    return True
+                    
+            except json.JSONDecodeError:
+                # Message non chiffré (pour la compatibilité)
+                self.messages.append((addr, data))
+                self.log(f"[INFO] Message non chiffré reçu de {addr} : {data}")
+                return True
                 
-            # Ajouter le message à la liste
-            self.messages.append((addr, data))
-            print(f"[DEBUG] MessageManager - Message ajouté, nouvel état: {self.messages}")
-            
-            self.log(f"[INFO] Message reçu de {addr} : {data}")
-            return True
-            
         except Exception as e:
             print(f"[ERROR] MessageManager - Erreur lors du traitement du message: {str(e)}")
             self.log(f"[ERREUR] Erreur lors du traitement du message de {addr} : {e}")
