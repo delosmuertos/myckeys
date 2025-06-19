@@ -32,7 +32,7 @@ stop_event = threading.Event()
 # Fonction s'occupoant de charger la clé publique à partir d'un chemin donné, vérification de présence de la clé intégrée
 def charger_cle_publique():
     global ma_cle_publique
-    chemin = "/home/victor/Bureau/Ges/Année 2/Projet Messagerie Chiffrée/Code/test_cle_publique.pem"
+    chemin = "../test_cle_publique.pem"
     if os.path.exists(chemin):
         with open(chemin, 'r') as f:
             ma_cle_publique = f.read().strip()
