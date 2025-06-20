@@ -219,7 +219,7 @@ class Dashboard(QWidget):
         btn_deco.setCursor(Qt.PointingHandCursor)
         btn_deco.setStyleSheet("""
             QPushButton {
-                background-color: #6c757d;
+                background-color: #D66853;
                 color: white;
                 font-size: 15px;
                 border-radius: 10px;
@@ -227,8 +227,8 @@ class Dashboard(QWidget):
                 min-width: 140px;
                 text-align: left;
             }
-            QPushButton:hover { background-color: #5a6268; }
-            QPushButton:pressed { background-color: #545b62; }
+            QPushButton:hover { background-color: #c55a47; }
+            QPushButton:pressed { background-color: #b54a37; }
         """)
         icon_path = os.path.join("resources/img", "logoutblanc.png")
         if os.path.exists(icon_path):
