@@ -1,7 +1,7 @@
 import socket
 import threading
 import time
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional
 from PyQt5.QtCore import QObject, pyqtSignal
 from cryptography.hazmat.primitives import serialization
 
