@@ -100,6 +100,9 @@ class NetworkManager(QObject):
             public_key_pem = cert.public_bytes(encoding=serialization.Encoding.PEM)
             self.message_manager.set_ma_cle_publique(public_key_pem.decode())
             
+            # Passer la clé publique au communicateur également
+            self.communicator.set_local_public_key(public_key_pem.decode())
+
             self.logger.info("Cryptographie initialisée", "NETWORK_MANAGER")
             
         except Exception as e:
@@ -248,6 +251,22 @@ class NetworkManager(QObject):
     def get_groups(self) -> Dict:
         """Retourne tous les groupes"""
         return self.group_manager.get_groupes()
+    
+    def ensure_key_exchange(self, ip: str):
+        """
+        S'assure qu'un échange de clés est effectué avec l'IP donnée si ce n'est pas déjà fait.
+        S'exécute dans un thread d'arrière-plan pour ne pas bloquer l'interface graphique.
+        """
+        if hasattr(self.message_manager, 'has_public_key') and not self.message_manager.has_public_key(ip):
+            self.logger.info(f"Lancement de l'échange de clés avec {ip} en arrière-plan.", "NETWORK_MANAGER")
+            thread = threading.Thread(target=self.message_manager.echanger_cles_publiques, args=(ip,), daemon=True)
+            thread.start()
+    
+    def get_peer_public_key(self, ip: str) -> Optional[str]:
+        """Retourne la clé publique d'un pair spécifique"""
+        if hasattr(self.message_manager, 'get_public_key'):
+            return self.message_manager.get_public_key(ip)
+        return None
     
     def get_messages(self) -> List:
         """Retourne tous les messages directs"""

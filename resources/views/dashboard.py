@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QLineEdit, QMainWindow, QScrollArea, QMessageBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QLineEdit, QMainWindow, QScrollArea, QMessageBox, QDialog, QTextEdit
 from PyQt5.QtCore import Qt, QSize, QTimer, QThread, pyqtSignal, QPoint
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 import os
@@ -9,7 +9,7 @@ SERVICE_TYPE = "_securemsg._tcp.local."
 SERVICE_PORT = 50001  # À adapter selon serveur TCP
 
 class CustomTooltip(QWidget):
-    def __init__(self, name, parent=None):
+    def __init__(self, name, ip, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -64,6 +64,10 @@ class CustomTooltip(QWidget):
         detected_label.setStyleSheet("font-size: 13px;")
         text_details_layout.addWidget(detected_label)
         
+        ip_label = QLabel(f"IP : {ip}")
+        ip_label.setStyleSheet("font-size: 13px;")
+        text_details_layout.addWidget(ip_label)
+
         encryption_label = QLabel("Utilise le chiffrement AES-256")
         encryption_label.setStyleSheet("font-size: 13px;")
         text_details_layout.addWidget(encryption_label)
@@ -73,6 +77,21 @@ class CustomTooltip(QWidget):
         content_layout.addLayout(details_layout)
 
         self.adjustSize()
+
+    def show_tooltip(self):
+        # Vérifie si la souris est toujours sur le widget avant d'afficher
+        if self.underMouse():
+            if not self.custom_tooltip:
+                peer_name = self.peer_info.get('nom', 'Inconnu')
+                peer_ip = self.peer_info.get('ip', 'N/A')
+                self.custom_tooltip = CustomTooltip(peer_name, peer_ip, parent=self.window())
+                
+                # Positionne le tooltip à droite de l'icône
+                global_pos = self.mapToGlobal(self.rect().topRight())
+                tooltip_pos = QPoint(global_pos.x() + 10, global_pos.y() + (self.height() - self.custom_tooltip.height()) // 2)
+                
+                self.custom_tooltip.move(tooltip_pos)
+                self.custom_tooltip.show()
 
 class IconTextButton(QFrame):
     def __init__(self, icon_path, text, parent=None):
@@ -184,7 +203,9 @@ class CircleIcon(QFrame):
         # Vérifie si la souris est toujours sur le widget avant d'afficher
         if self.underMouse():
             if not self.custom_tooltip:
-                self.custom_tooltip = CustomTooltip(self.peer_info.get('nom', 'Inconnu'), parent=self.window())
+                peer_name = self.peer_info.get('nom', 'Inconnu')
+                peer_ip = self.peer_info.get('ip', 'N/A')
+                self.custom_tooltip = CustomTooltip(peer_name, peer_ip, parent=self.window())
                 
                 # Positionne le tooltip à droite de l'icône
                 global_pos = self.mapToGlobal(self.rect().topRight())
@@ -275,6 +296,99 @@ class ContactCell(QFrame):
                 font-size: 13px;
             }}
         """)
+
+class PublicKeyWindow(QDialog):
+    def __init__(self, peer_name, public_key, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Clé publique de {peer_name}")
+        self.setModal(True)
+        self.setStyleSheet("background-color: #F5F5F5;")
+        self.setMinimumSize(900, 600)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # --- BARRE SUPÉRIEURE ---
+        top_bar = QFrame()
+        top_bar.setStyleSheet("background-color: #404349;")
+        top_bar.setFixedHeight(60)
+        top_bar_layout = QHBoxLayout(top_bar)
+        top_bar_layout.setContentsMargins(18, 0, 18, 0)
+        
+        title_text = f"<span style='color:white;font-size:18px;font-weight:600;'>Clé publique de {peer_name}</span>"
+        title_label = QLabel(title_text)
+        top_bar_layout.addWidget(title_label)
+        top_bar_layout.addStretch(1)
+        main_layout.addWidget(top_bar)
+
+        # --- CORPS DE LA FENÊTRE ---
+        body_layout = QHBoxLayout()
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.setSpacing(0)
+
+        # Colonne de navigation à gauche
+        nav_col = QFrame()
+        nav_col.setStyleSheet("background-color: #404349;")
+        nav_col.setMinimumWidth(220)
+        nav_col.setMaximumWidth(260)
+        nav_layout = QVBoxLayout(nav_col)
+        nav_layout.setContentsMargins(0, 30, 0, 30)
+        nav_layout.setSpacing(18)
+        
+        btn_key_info = QPushButton("Clé Publique")
+        btn_key_info.setStyleSheet("""
+            QPushButton { background: #D66853; color: white; font-size: 16px; border-radius: 10px; padding: 12px 0; }
+        """)
+        nav_layout.addWidget(btn_key_info)
+        nav_layout.addStretch(1)
+        body_layout.addWidget(nav_col)
+
+        # --- CONTENU ---
+        content_area = QFrame()
+        content_area.setStyleSheet("background-color: #ffffff;")
+        content_layout = QVBoxLayout(content_area)
+        content_layout.setContentsMargins(40, 40, 40, 40)
+        content_layout.setSpacing(15)
+
+        info_label = QLabel("Voici la clé publique RSA du contact. Vous pouvez la copier pour la vérifier.")
+        info_label.setStyleSheet("font-size: 14px; background-color: transparent;")
+        content_layout.addWidget(info_label)
+
+        key_text_edit = QTextEdit()
+        key_text_edit.setText(public_key)
+        key_text_edit.setReadOnly(True)
+        key_text_edit.setStyleSheet("""
+            QTextEdit {
+                font-family: 'Courier New', monospace;
+                font-size: 13px;
+                background-color: #fff;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
+        content_layout.addWidget(key_text_edit)
+
+        close_button = QPushButton("Fermer")
+        close_button.setCursor(Qt.PointingHandCursor)
+        close_button.setStyleSheet("""
+            QPushButton {
+                background-color: #D66853;
+                color: white;
+                font-size: 15px;
+                border-radius: 8px;
+                padding: 10px 18px;
+                min-width: 80px;
+            }
+            QPushButton:hover { background-color: #c55a47; }
+            QPushButton:pressed { background-color: #b54a37; }
+        """)
+        close_button.clicked.connect(self.accept)
+        content_layout.addWidget(close_button, alignment=Qt.AlignRight)
+
+        body_layout.addWidget(content_area, stretch=1)
+        main_layout.addLayout(body_layout)
 
 class Dashboard(QWidget):
     deconnexion_terminee = pyqtSignal()
@@ -542,20 +656,24 @@ class Dashboard(QWidget):
         known_peers = self.network_manager.get_known_peers()
         print(f"[DEBUG] Pairs connus: {known_peers}")
         
-        for ip, peer_info in known_peers.items():
-            print(f"[DEBUG] Affichage du pair: {ip} - {peer_info}")
+        for ip, peer_data in known_peers.items():
+            print(f"[DEBUG] Affichage du pair: {ip} - {peer_data}")
             try:
+                # On enrichit les informations du pair avec son IP pour le passer au widget
+                peer_info_with_ip = peer_data.copy()
+                peer_info_with_ip['ip'] = ip
+                
                 circle_icon = CircleIcon(
                     os.path.join("resources/img", "laptopblanc.png"),
-                    peer_info,
+                    peer_info_with_ip,
                     diameter=60,
                     selected=(self.selected_peripherique and self.selected_peripherique.get('ip') == ip)
                 )
                 # La gestion du tooltip est maintenant dans CircleIcon, plus besoin de setToolTip ici
                 periph = {
-                    'nom': peer_info.get('nom', 'Inconnu'),
+                    'nom': peer_data.get('nom', 'Inconnu'),
                     'ip': ip,
-                    'status': peer_info.get('status', 'online')
+                    'status': peer_data.get('status', 'online')
                 }
                 # Utiliser une méthode dédiée pour éviter les problèmes de lambda
                 circle_icon.mousePressEvent = lambda event, p=periph, w=circle_icon: self._handle_peripheral_click(p, w)
@@ -656,6 +774,11 @@ class Dashboard(QWidget):
             'name': conv_data.get('nom'),
             'ip': conv_data.get('ip')
         }
+
+        # S'assurer que l'échange de clés est fait avant d'afficher le chat
+        if self.selected_conversation['type'] == 'contact':
+            self.network_manager.ensure_key_exchange(self.selected_conversation['ip'])
+
         self.afficher_conversations()
         self.afficher_chat(self.selected_conversation)
 
@@ -704,14 +827,28 @@ class Dashboard(QWidget):
         logos_layout = QHBoxLayout()
         logos_layout.setSpacing(12)
         logos_layout.setContentsMargins(0, 0, 0, 4) 
-        for icon_name in ["door-key.png", "bell.png"]:
-            icon_path = os.path.join("resources/img", icon_name)
-            if os.path.exists(icon_path):
-                icon_label = QLabel()
-                pixmap = QPixmap(icon_path)
-                icon_label.setPixmap(pixmap.scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                icon_label.setAlignment(Qt.AlignCenter)
-                logos_layout.addWidget(icon_label)
+        
+        # Icône de clé cliquable
+        key_icon_path = os.path.join("resources/img", "door-key.png")
+        if os.path.exists(key_icon_path):
+            key_icon_label = QLabel()
+            pixmap = QPixmap(key_icon_path)
+            key_icon_label.setPixmap(pixmap.scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            key_icon_label.setAlignment(Qt.AlignCenter)
+            key_icon_label.setCursor(Qt.PointingHandCursor)
+            if conv['type'] == 'contact':
+                key_icon_label.mousePressEvent = lambda event, ip=conv['ip']: self._show_peer_public_key(ip)
+            logos_layout.addWidget(key_icon_label)
+
+        # Icône de cloche (non cliquable pour l'instant)
+        bell_icon_path = os.path.join("resources/img", "bell.png")
+        if os.path.exists(bell_icon_path):
+            bell_icon_label = QLabel()
+            pixmap = QPixmap(bell_icon_path)
+            bell_icon_label.setPixmap(pixmap.scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            bell_icon_label.setAlignment(Qt.AlignCenter)
+            logos_layout.addWidget(bell_icon_label)
+            
         header_layout.addLayout(logos_layout)
         self.chat_layout.addWidget(header)
 
@@ -727,17 +864,30 @@ class Dashboard(QWidget):
         # Afficher les messages
         if conv['type'] == 'contact':
             messages = self.network_manager.get_messages()
-            print(f"[DEBUG] Messages récupérés pour {conv['ip']}: {messages}")
             
-            # Filtrer les messages pour ce contact (envoyés ET reçus)
+            # Filtrer les messages pour cette conversation spécifique
             contact_messages = []
-            for sender_ip, message_content in messages:
-                # Messages envoyés par nous à ce contact
-                if sender_ip == self.network_manager._get_local_ip() and conv['ip'] in self.network_manager.get_known_peers():
-                    contact_messages.append(('sent', message_content))
-                # Messages reçus de ce contact
-                elif sender_ip == conv['ip']:
-                    contact_messages.append(('received', message_content))
+            my_ip = self.network_manager._get_local_ip()
+            contact_ip = conv['ip']
+            
+            for msg_data in messages:
+                # Gérer l'ancien et le nouveau format de message pour la compatibilité
+                if len(msg_data) == 3:
+                    sender_ip, recipient_ip, message_content = msg_data
+                    # Message envoyé par moi à ce contact
+                    if sender_ip == my_ip and recipient_ip == contact_ip:
+                        contact_messages.append(('sent', message_content))
+                    # Message reçu de ce contact par moi
+                    elif sender_ip == contact_ip and recipient_ip == my_ip:
+                        contact_messages.append(('received', message_content))
+                elif len(msg_data) == 2:
+                    # Logique de secours pour l'ancien format (peut être supprimée plus tard)
+                    sender_ip, message_content = msg_data
+                    if sender_ip == contact_ip:
+                        contact_messages.append(('received', message_content))
+                    elif sender_ip == my_ip: # Affiche tous les messages envoyés
+                        contact_messages.append(('sent', message_content))
+
             
             print(f"[DEBUG] Messages filtrés pour {conv['ip']}: {contact_messages}")
             
@@ -919,6 +1069,21 @@ class Dashboard(QWidget):
         except Exception as e:
             print(f"[ERROR] Erreur lors de l'envoi du message de groupe: {str(e)}")
             QMessageBox.warning(self, "Erreur", f"Une erreur est survenue lors de l'envoi du message de groupe: {str(e)}")
+
+    def _show_peer_public_key(self, ip: str):
+        """Affiche la clé publique du pair dans une boîte de dialogue."""
+        public_key = self.network_manager.get_peer_public_key(ip)
+        
+        if public_key:
+            # Remplacer QMessageBox par notre nouvelle fenêtre
+            key_window = PublicKeyWindow(
+                self.selected_conversation['name'], 
+                public_key, 
+                self
+            )
+            key_window.exec_()
+        else:
+            QMessageBox.warning(self, "Clé non trouvée", "Impossible de récupérer la clé publique pour ce contact.")
 
     def effacement_securise(self):
         reply = QMessageBox.question(
