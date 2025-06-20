@@ -19,8 +19,10 @@ class PeerCommunicator:
         self.on_group_message_received = None
 
     def handle_client(self, conn, addr):
+        self.log(f"[DEBUG] PEER_COMMUNICATOR: Connexion reçue de {addr[0]}")
         try:
             data = conn.recv(BUFFER_SIZE).decode()
+            self.log(f"[DEBUG] PEER_COMMUNICATOR: Données reçues de {addr[0]}: {data[:100]}...")
             if data.startswith("PUBKEY:"):
                 peer_ip = addr[0]
                 key = data.split(":", 1)[1]
