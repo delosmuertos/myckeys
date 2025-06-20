@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QLineEdit, QMainWindow, QScrollArea, QMessageBox
-from PyQt5.QtCore import Qt, QSize, QTimer, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QSize, QTimer, QThread, pyqtSignal, QPoint
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 import os
 from app.network_manager import NetworkManager
@@ -8,13 +8,89 @@ from resources.views.settings_window import SettingsWindow
 SERVICE_TYPE = "_securemsg._tcp.local."
 SERVICE_PORT = 50001  # À adapter selon serveur TCP
 
+class CustomTooltip(QWidget):
+    def __init__(self, name, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+        # Frame principal pour le style
+        main_frame = QFrame(self)
+        main_frame.setStyleSheet("""
+            QFrame {
+                background-color: #D66853;
+                color: white;
+                border-radius: 8px;
+            }
+            QLabel {
+                color: white;
+                background-color: transparent;
+            }
+        """)
+
+        # Layout externe pour le widget
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.addWidget(main_frame)
+
+        # Layout pour le contenu dans le frame stylé
+        content_layout = QVBoxLayout(main_frame)
+        content_layout.setContentsMargins(15, 10, 15, 10)
+        content_layout.setSpacing(6)
+
+        # Label du nom
+        name_label = QLabel(f"<b>{name}</b>")
+        name_label.setStyleSheet("font-size: 16px;")
+        content_layout.addWidget(name_label)
+
+        # Layout des détails (icône + textes)
+        details_layout = QHBoxLayout()
+        details_layout.setSpacing(8)
+        details_layout.setContentsMargins(0, 5, 0, 0)
+
+        # Icône de cadenas
+        icon_label = QLabel()
+        icon_path = os.path.join("resources/img", "lockblanc.png")
+        if os.path.exists(icon_path):
+            pixmap = QPixmap(icon_path)
+            icon_label.setPixmap(pixmap.scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            details_layout.addWidget(icon_label, alignment=Qt.AlignTop)
+
+        # VBox pour les textes de détails
+        text_details_layout = QVBoxLayout()
+        text_details_layout.setSpacing(2)
+        
+        detected_label = QLabel("Détecté sur le réseau local")
+        detected_label.setStyleSheet("font-size: 13px;")
+        text_details_layout.addWidget(detected_label)
+        
+        encryption_label = QLabel("Utilise le chiffrement AES-256")
+        encryption_label.setStyleSheet("font-size: 13px;")
+        text_details_layout.addWidget(encryption_label)
+
+        details_layout.addLayout(text_details_layout)
+        details_layout.addStretch()
+        content_layout.addLayout(details_layout)
+
+        self.adjustSize()
+
 class IconTextButton(QFrame):
     def __init__(self, icon_path, text, parent=None):
         super().__init__(parent)
+        self.setObjectName("iconTextButton")
         self.setStyleSheet("""
-            QFrame {
+            QFrame#iconTextButton {
                 background: #D66853;
                 border-radius: 10px;
+            }
+            QFrame#iconTextButton:hover {
+                background: #c55a47;
+            }
+            /* Applique un fond transparent à tous les QLabel enfants */
+            QFrame#iconTextButton QLabel {
+                background: transparent;
+                color: white;
+                font-size: 15px;
             }
         """)
         self.setMinimumSize(120, 70)
@@ -30,27 +106,38 @@ class IconTextButton(QFrame):
         layout.addWidget(icon_label)
         # Texte
         text_label = QLabel(text)
-        text_label.setStyleSheet("color: white; font-size: 15px;")
         text_label.setAlignment(Qt.AlignHCenter)
         layout.addWidget(text_label)
         self.setCursor(Qt.PointingHandCursor)
 
 class CircleIcon(QFrame):
-    def __init__(self, icon_path, diameter=60, selected=False, parent=None):
+    def __init__(self, icon_path, peer_info, diameter=60, selected=False, parent=None):
         super().__init__(parent)
+        self.setObjectName("circleIcon")
+        self.peer_info = peer_info
         self.diameter = diameter
         self.selected = selected
         self.icon_path = icon_path
         self.setFixedSize(diameter, diameter)
-        self.update_style()
+        self.setMouseTracking(True)
+        self.custom_tooltip = None
+
+        # Timer robuste pour gérer l'affichage du tooltip
+        self.tooltip_timer = QTimer(self)
+        self.tooltip_timer.setSingleShot(True)
+        self.tooltip_timer.timeout.connect(self.show_tooltip)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         icon_label = QLabel()
+        icon_label.setObjectName("circleIconLabel")
         pixmap = QPixmap(icon_path)
         icon_label.setPixmap(pixmap.scaled(diameter-20, diameter-20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         icon_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(icon_label, alignment=Qt.AlignCenter)
+        
+        self.update_style()
 
     def update_style(self):
         try:
@@ -60,13 +147,16 @@ class CircleIcon(QFrame):
             color = selected_color if self.selected else base
             
             self.setStyleSheet(f"""
-                QFrame {{
+                QFrame#circleIcon {{
                     background: {color};
                     border: none;
                     border-radius: {self.diameter//2}px;
                 }}
-                QFrame:hover {{
+                QFrame#circleIcon:hover {{
                     background: {hover};
+                }}
+                QLabel#circleIconLabel {{
+                    background: transparent;
                 }}
             """)
         except Exception as e:
@@ -79,9 +169,40 @@ class CircleIcon(QFrame):
         except Exception as e:
             print(f"[DEBUG] Erreur lors de la sélection: {e}")
 
+    def enterEvent(self, event):
+        # Démarre le timer au lieu d'appeler directement
+        self.tooltip_timer.start(400)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        # Arrête le timer et masque le tooltip
+        self.tooltip_timer.stop()
+        self.hide_tooltip()
+        super().leaveEvent(event)
+    
+    def show_tooltip(self):
+        # Vérifie si la souris est toujours sur le widget avant d'afficher
+        if self.underMouse():
+            if not self.custom_tooltip:
+                self.custom_tooltip = CustomTooltip(self.peer_info.get('nom', 'Inconnu'), parent=self.window())
+                
+                # Positionne le tooltip à droite de l'icône
+                global_pos = self.mapToGlobal(self.rect().topRight())
+                tooltip_pos = QPoint(global_pos.x() + 10, global_pos.y() + (self.height() - self.custom_tooltip.height()) // 2)
+                
+                self.custom_tooltip.move(tooltip_pos)
+                self.custom_tooltip.show()
+    
+    def hide_tooltip(self):
+        if self.custom_tooltip:
+            self.custom_tooltip.close()
+            self.custom_tooltip.deleteLater()
+            self.custom_tooltip = None
+
 class ContactCell(QFrame):
     def __init__(self, nom, etat, initials, on_click=None, selected=False, parent=None):
         super().__init__(parent)
+        self.setObjectName("contactCell")
         self.selected = selected
         self.setFixedHeight(68)
         self.setMinimumWidth(320)
@@ -89,23 +210,27 @@ class ContactCell(QFrame):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(18, 0, 0, 0)
         layout.setSpacing(18)
+        
         # Cercle avec initiales
         self.circle = QLabel(initials)
         self.circle.setObjectName("initialsCircle")
         self.circle.setFixedSize(44, 44)
         self.circle.setAlignment(Qt.AlignCenter)
-        
         layout.addWidget(self.circle)
+
         # Bloc texte (nom, état)
         text_vbox = QVBoxLayout()
         self.label_nom = QLabel(nom)
-        
+        self.label_nom.setObjectName("contactName")
         text_vbox.addWidget(self.label_nom)
-        self.label_etat = QLabel(etat)
         
+        self.label_etat = QLabel(etat)
+        self.label_etat.setObjectName("contactStatus")
         text_vbox.addWidget(self.label_etat)
+        
         layout.addLayout(text_vbox)
         layout.addStretch(1)
+        
         if on_click:
             self.mousePressEvent = lambda event: on_click()
         
@@ -117,36 +242,39 @@ class ContactCell(QFrame):
 
     def update_style(self):
         bg_color = "#e5e5e5" if self.selected else "#f1f1f1"
+        hover_bg_color = "#e0e0e0"
+
+        # Feuille de style unifiée pour tout le composant
         self.setStyleSheet(f"""
-            QFrame {{
+            QFrame#contactCell {{
                 background-color: {bg_color};
                 border: none;
                 border-top-right-radius: 10px;
                 border-bottom-right-radius: 10px;
-                border-top-left-radius: 0px;
-                border-bottom-left-radius: 0px;
                 margin-right: 2px;
             }}
-            QFrame:hover {{
-                background: #e0e0e0;
+            QFrame#contactCell:hover {{
+                background-color: {hover_bg_color};
             }}
-        """)
-        
-        # Style du cercle d'initiales
-        self.circle.setStyleSheet(f"""
-            QLabel {{
+            QLabel#initialsCircle {{
                 background-color: #d8d8d8;
                 color: #222;
                 font-size: 20px;
                 font-weight: bold;
-                border-radius: 22px;
-                border: 2px solid transparent;
+                border-radius: 22px; /* La moitié de 44px pour un cercle parfait */
+            }}
+            QLabel#contactName {{
+                background: transparent;
+                font-size: 17px;
+                color: #222;
+                font-weight: 500;
+            }}
+            QLabel#contactStatus {{
+                background: transparent;
+                color: #555;
+                font-size: 13px;
             }}
         """)
-        
-        # Styles pour les autres widgets enfants pour s'assurer qu'ils n'héritent pas du fond
-        self.label_nom.setStyleSheet("background: transparent; font-size: 17px; color: #222; font-weight: 500;")
-        self.label_etat.setStyleSheet("background: transparent; color:#555;font-size:13px;")
 
 class Dashboard(QWidget):
     deconnexion_terminee = pyqtSignal()
@@ -277,6 +405,7 @@ class Dashboard(QWidget):
         self.center_layout = QVBoxLayout(self.center_col)
         self.center_layout.setContentsMargins(0, 0, 0, 0)
         self.center_layout.setSpacing(0)
+        self.center_layout.setAlignment(Qt.AlignTop)
         main_hlayout.addWidget(self.center_col, stretch=1)
 
         # Colonne droite (zone de chat)
@@ -401,6 +530,8 @@ class Dashboard(QWidget):
         for widget in self.peripherique_widgets:
             try:
                 if widget and not widget.isHidden():
+                    # S'assurer de cacher le tooltip avant de supprimer le widget
+                    widget.hide_tooltip()
                     self.left_layout.removeWidget(widget)
                     widget.deleteLater()
             except Exception as e:
@@ -416,11 +547,11 @@ class Dashboard(QWidget):
             try:
                 circle_icon = CircleIcon(
                     os.path.join("resources/img", "laptopblanc.png"),
+                    peer_info,
                     diameter=60,
                     selected=(self.selected_peripherique and self.selected_peripherique.get('ip') == ip)
                 )
-                tooltip = f"Nom : {peer_info.get('nom', 'Inconnu')}\nIP : {ip}"
-                circle_icon.setToolTip(tooltip)
+                # La gestion du tooltip est maintenant dans CircleIcon, plus besoin de setToolTip ici
                 periph = {
                     'nom': peer_info.get('nom', 'Inconnu'),
                     'ip': ip,
@@ -438,14 +569,16 @@ class Dashboard(QWidget):
         """Gère le clic sur un périphérique de manière sécurisée"""
         try:
             if widget and not widget.isHidden():
+                # Cacher le tooltip immédiatement lors du clic
+                widget.hide_tooltip()
                 self.selectionner_peripherique(periph, widget)
         except Exception as e:
             print(f"[DEBUG] Erreur lors du clic sur le périphérique: {e}")
 
     def selectionner_peripherique(self, periph, widget):
-        """Sélectionne un périphérique et l'ajoute à la liste des conversations."""
+        """Sélectionne un périphérique et met à jour l'affichage visuel."""
         try:
-            # Gérer la sélection visuelle sur la colonne de gauche
+            # Gérer la désélection visuelle de l'ancien widget
             if self.selected_widget and self.selected_widget != widget:
                 try:
                     if self.selected_widget and not self.selected_widget.isHidden():
@@ -453,27 +586,28 @@ class Dashboard(QWidget):
                 except Exception as e:
                     print(f"[DEBUG] Erreur lors de la désélection du widget précédent: {e}")
             
+            # Gérer la sélection du nouveau widget
             if widget and not widget.isHidden():
                 widget.set_selected(True)
                 self.selected_peripherique = periph
                 self.selected_widget = widget
-
-                # Ajouter le contact à la liste des conversations (colonne centrale)
-                if not any(c['ip'] == periph['ip'] for c in self.conversations):
-                    self.conversations.append(periph)
-                    self.afficher_conversations()
             else:
                 print(f"[DEBUG] Widget invalide ou caché, sélection annulée")
         except Exception as e:
             print(f"[DEBUG] Erreur lors de la sélection du périphérique: {e}")
 
     def ajouter_conversation(self):
-        """Ouvre la fenêtre de chat pour la conversation sélectionnée dans la colonne centrale."""
-        if self.selected_conversation:
-            self.afficher_chat(self.selected_conversation)
+        """Ajoute le périphérique sélectionné à la liste des conversations sans ouvrir le chat."""
+        if self.selected_peripherique:
+            periph = self.selected_peripherique
+            # Ajouter le contact à la liste des conversations s'il n'y est pas déjà
+            if not any(c['ip'] == periph['ip'] for c in self.conversations):
+                self.conversations.append(periph)
+                # Rafraîchir l'affichage pour montrer le nouveau contact
+                self.afficher_conversations()
         else:
-            QMessageBox.information(self, "Aucune conversation sélectionnée", 
-                                    "Veuillez d'abord sélectionner un contact dans la liste centrale.")
+            QMessageBox.information(self, "Aucun périphérique sélectionné", 
+                                    "Veuillez d'abord sélectionner un périphérique dans la liste de gauche.")
 
     def afficher_conversations(self):
         # Nettoyer la colonne centrale
@@ -499,7 +633,7 @@ class Dashboard(QWidget):
                 f"AES-256 – {etat}", 
                 initials,
                 selected=is_selected,
-                on_click=lambda c=conv: self.selectionner_conversation(c)
+                on_click=lambda c=conv: self.selectionner_et_afficher_chat(c)
             )
             self.center_layout.addWidget(cell)
 
@@ -515,16 +649,15 @@ class Dashboard(QWidget):
             )
             self.center_layout.addWidget(cell)
 
-    def selectionner_conversation(self, conv_data):
-        """Met en mémoire la conversation sélectionnée et rafraîchit l'affichage."""
-        # Créer un objet conversation avec le type, pour être compatible avec afficher_chat
+    def selectionner_et_afficher_chat(self, conv_data):
+        """Sélectionne le contact et affiche directement la zone de chat."""
         self.selected_conversation = {
             'type': 'contact',
             'name': conv_data.get('nom'),
             'ip': conv_data.get('ip')
         }
-        # Rafraîchir l'affichage pour montrer la sélection
         self.afficher_conversations()
+        self.afficher_chat(self.selected_conversation)
 
     def afficher_chat(self, conv):
         # Nettoyer la zone de chat
