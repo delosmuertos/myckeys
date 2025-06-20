@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QLineEdit, QMainWindow, QScrollArea, QMessageBox, QDialog, QTextEdit
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QPushButton, QLabel, QLineEdit, QMainWindow, QScrollArea, QMessageBox, QDialog, QTextEdit, QSizePolicy
 from PyQt5.QtCore import Qt, QSize, QTimer, QThread, pyqtSignal, QPoint
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 import os
@@ -296,6 +296,50 @@ class ContactCell(QFrame):
                 font-size: 13px;
             }}
         """)
+
+class MessageBubble(QFrame):
+    def __init__(self, text, is_sent, parent=None):
+        super().__init__(parent)
+        
+        # Le conteneur principal de la bulle
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Le widget de texte qui contient le message
+        text_widget = QFrame()
+        text_layout = QVBoxLayout(text_widget)
+        text_layout.setContentsMargins(12, 10, 12, 10)
+        
+        text_label = QLabel(text)
+        text_label.setWordWrap(True)
+        text_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        text_layout.addWidget(text_label)
+        
+        # Définir la largeur maximale de la bulle (70% de la largeur du parent)
+        if self.parentWidget():
+             self.setMaximumWidth(int(self.parentWidget().width() * 0.7))
+
+        # Style de la bulle
+        if is_sent:
+            bg_color = "#D66853"
+            text_color = "white"
+        else:
+            bg_color = "#6a6a6a" # Un gris foncé pour les messages reçus
+            text_color = "white"
+
+        text_widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: {bg_color};
+                border-radius: 12px;
+            }}
+            QLabel {{
+                background-color: transparent;
+                color: {text_color};
+                font-size: 15px;
+            }}
+        """)
+        
+        main_layout.addWidget(text_widget)
 
 class PublicKeyWindow(QDialog):
     def __init__(self, peer_name, public_key, parent=None):
@@ -899,78 +943,59 @@ class Dashboard(QWidget):
                 messages_layout.addWidget(info_label)
             
             for msg_type, message_content in contact_messages:
-                msg_widget = QFrame()
                 
-                # Style différent selon le type de message
+                bubble = MessageBubble(message_content, msg_type == 'sent', parent=messages_widget)
+                
+                row_layout = QHBoxLayout()
+                
                 if msg_type == 'sent':
-                    msg_widget.setStyleSheet("""
-                        QFrame {
-                            background: #D66853;
-                            border-radius: 10px;
-                            padding: 12px;
-                            margin: 4px 0;
-                        }
-                    """)
-                    sender_name = "Vous"
-                    text_color = "white"
+                    # Icône de statut pour les messages envoyés
+                    status_icon = QLabel()
+                    icon_path = os.path.join("resources/img", "check-mark.png")
+                    if os.path.exists(icon_path):
+                        pixmap = QPixmap(icon_path).scaled(16, 16, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        status_icon.setPixmap(pixmap)
+                    
+                    row_layout.addStretch()
+                    row_layout.addWidget(bubble)
+                    row_layout.addWidget(status_icon)
+                    row_layout.setAlignment(status_icon, Qt.AlignBottom)
+                
                 else:  # received
-                    msg_widget.setStyleSheet("""
-                        QFrame {
-                            background: #f8f9fa;
-                            border-radius: 10px;
-                            padding: 12px;
-                            margin: 4px 0;
-                        }
-                    """)
-                    sender_name = conv['name']
-                    text_color = "#333"
+                    row_layout.addWidget(bubble)
+                    row_layout.addStretch()
                 
-                msg_layout = QVBoxLayout(msg_widget)
-                msg_layout.setContentsMargins(12, 8, 12, 8)
-                
-                # En-tête du message avec le nom de l'expéditeur
-                sender_label = QLabel(f"<b>{sender_name}</b>")
-                sender_label.setStyleSheet(f"color: {text_color}; font-size: 13px;")
-                msg_layout.addWidget(sender_label)
-                
-                # Contenu du message
-                msg_content = QLabel(message_content)
-                msg_content.setWordWrap(True)
-                msg_content.setStyleSheet(f"color: {text_color}; font-size: 14px; margin-top: 4px;")
-                msg_layout.addWidget(msg_content)
-                
-                messages_layout.addWidget(msg_widget)
-                print(f"[DEBUG] Message ajouté au layout - Type: {msg_type}, De: {sender_name}, Message: {message_content}")
+                messages_layout.addLayout(row_layout)
+                print(f"[DEBUG] Message ajouté au layout - Type: {msg_type}, Message: {message_content}")
         else:  # groupe
             group_messages = self.network_manager.get_group_messages(conv['name'])
             print(f"[DEBUG] Messages de groupe récupérés pour {conv['name']}: {group_messages}")
             
             for sender_ip, message_content in group_messages:
-                msg_widget = QFrame()
-                msg_widget.setStyleSheet("""
-                    QFrame {
-                        background: #f8f9fa;
-                        border-radius: 10px;
-                        padding: 12px;
-                        margin: 4px 0;
-                    }
-                """)
-                msg_layout = QVBoxLayout(msg_widget)
-                msg_layout.setContentsMargins(12, 8, 12, 8)
                 
-                # En-tête du message avec le nom de l'expéditeur
-                sender_name = self.network_manager.get_known_peers().get(sender_ip, {}).get('nom', 'Inconnu')
-                sender_label = QLabel(f"<b>{sender_name}</b>")
-                sender_label.setStyleSheet("color: #666; font-size: 13px;")
-                msg_layout.addWidget(sender_label)
+                is_sent_by_me = sender_ip == self.network_manager._get_local_ip()
+                bubble = MessageBubble(f"{message_content}", is_sent_by_me, parent=messages_widget)
                 
-                # Contenu du message
-                msg_content = QLabel(message_content)
-                msg_content.setWordWrap(True)
-                msg_content.setStyleSheet("color: #333; font-size: 14px; margin-top: 4px;")
-                msg_layout.addWidget(msg_content)
+                row_layout = QHBoxLayout()
                 
-                messages_layout.addWidget(msg_widget)
+                if is_sent_by_me:
+                    row_layout.addStretch()
+                    row_layout.addWidget(bubble)
+                else:
+                    # Ajouter le nom de l'expéditeur pour les groupes
+                    sender_name = self.network_manager.get_known_peers().get(sender_ip, {}).get('nom', 'Inconnu')
+                    sender_label = QLabel(f"<b>{sender_name}</b>")
+                    sender_label.setStyleSheet("font-size: 13px; color: #666; margin-left: 5px;")
+                    
+                    bubble_with_name_layout = QVBoxLayout()
+                    bubble_with_name_layout.setSpacing(4)
+                    bubble_with_name_layout.addWidget(sender_label, alignment=Qt.AlignLeft)
+                    bubble_with_name_layout.addWidget(bubble)
+                    
+                    row_layout.addLayout(bubble_with_name_layout)
+                    row_layout.addStretch()
+
+                messages_layout.addLayout(row_layout)
 
         messages_layout.addStretch(1)
         messages_area.setWidget(messages_widget)

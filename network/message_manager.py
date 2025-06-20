@@ -28,6 +28,15 @@ class MessageManager:
         self.ma_cle_publique = cle_publique
         self.log("[INFO] Clé publique locale définie")
 
+    def add_public_key(self, ip: str, key_pem: str):
+        """Ajoute ou met à jour la clé publique d'un pair et sauvegarde."""
+        if self.public_keys.get(ip) != key_pem:
+            self.log(f"[INFO] Mise à jour de la clé publique pour {ip}.")
+            self.public_keys[ip] = key_pem
+            self._save_public_keys()
+        else:
+            self.log(f"[DEBUG] Clé publique pour {ip} déjà à jour.")
+
     def echanger_cles_publiques(self, ip: str) -> bool:
         """Échange les clés publiques avec un pair"""
         self.log(f"[DEBUG] Démarrage de l'échange de clé avec {ip}")

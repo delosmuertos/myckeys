@@ -52,7 +52,7 @@ class NetworkManager(QObject):
             self.discovery = NetworkDiscovery(
                 username=self.username,
                 on_peer_discovered=self._on_peer_discovered,
-                on_peer_lost=self._on_peer_lost_discovery
+                on_peer_lost=self._on_peer_lost
             )
             
             # Gestionnaire de clés
@@ -71,10 +71,11 @@ class NetworkManager(QObject):
                 log_func=self.logger.info
             )
             
-            # Communicateur peer
+            # Communicateur pour les messages directs et de groupe
             self.communicator = PeerCommunicator(
                 get_local_ip_func=self._get_local_ip,
                 key_exchange_func=self.message_manager.echanger_cles_publiques,
+                on_key_received_func=self.message_manager.add_public_key,
                 log_func=self.logger.info
             )
             
@@ -140,7 +141,7 @@ class NetworkManager(QObject):
         self.peer_discovered.emit(ip, nom)
         self.logger.info(f"Pair découvert: {nom} ({ip})", "NETWORK_MANAGER")
     
-    def _on_peer_lost_discovery(self, ip: str):
+    def _on_peer_lost(self, ip: str):
         """Callback quand un pair est perdu, venant du module de découverte."""
         if ip in self.known_peers:
             self.logger.info(f"Pair perdu: {self.known_peers[ip].get('nom', ip)} ({ip})", "NETWORK_MANAGER")
@@ -150,21 +151,18 @@ class NetworkManager(QObject):
             self.logger.warning(f"Tentative de suppression d'un pair inconnu: {ip}", "NETWORK_MANAGER")
     
     def _on_message_received(self, sender_ip: str, message: str):
-        """Callback quand un message direct est reçu"""
-        print(f"[DEBUG] NetworkManager - Message brut reçu de {sender_ip}: {message}")
+        """Callback quand un message direct est reçu du PeerCommunicator."""
+        self.logger.info(f"Message brut reçu de {sender_ip}. Tentative de déchiffrement.", "NETWORK_MANAGER")
         
-        plaintext_message = None
-        if hasattr(self.message_manager, 'traiter_message_recu'):
-            plaintext_message = self.message_manager.traiter_message_recu(message, sender_ip)
-        else:
-            print("[ERROR] NetworkManager - MessageManager n'a pas la méthode traiter_message_recu")
-            
-        # Émettre le signal pour l'interface seulement si le message a été traité avec succès
+        # Le message reçu est brut (chiffré), il doit être traité par le MessageManager
+        plaintext_message = self.message_manager.traiter_message_recu(message, sender_ip)
+        
+        # Émettre le signal pour l'interface seulement si le message a été déchiffré avec succès
         if plaintext_message:
-            self.message_received.emit(sender_ip, plaintext_message)
             self.logger.info(f"Message traité de {sender_ip}: {plaintext_message}", "NETWORK_MANAGER")
+            self.message_received.emit(sender_ip, plaintext_message)
         else:
-            self.logger.warning(f"Le message de {sender_ip} n'a pas pu être traité ou était vide.", "NETWORK_MANAGER")
+            self.logger.warning(f"Le message de {sender_ip} n'a pas pu être déchiffré ou traité.", "NETWORK_MANAGER")
     
     def _on_group_message_received(self, group_name: str, sender_ip: str, message: str):
         """Callback quand un message de groupe est reçu"""

@@ -6,9 +6,10 @@ TCP_PORT = 50001
 BUFFER_SIZE = 1024
 
 class PeerCommunicator:
-    def __init__(self, get_local_ip_func, key_exchange_func, log_func=None):
+    def __init__(self, get_local_ip_func, key_exchange_func, on_key_received_func, log_func=None):
         self.get_local_ip = get_local_ip_func
         self.key_exchange = key_exchange_func
+        self.on_key_received = on_key_received_func
         self.log = log_func if log_func else lambda msg: None
         self.public_keys = {}
         self.groupes = {}
@@ -32,11 +33,19 @@ class PeerCommunicator:
             data = conn.recv(BUFFER_SIZE).decode()
             self.log(f"[DEBUG] PEER_COMMUNICATOR: Données reçues de {addr[0]}: {data[:100]}...")
             if data.startswith("PUBKEY:"):
-                self.log(f"[INFO] Demande d'échange de clé reçue de {addr}")
+                peer_ip = addr[0]
+                key_pem = data.split(":", 1)[1]
+                self.log(f"[INFO] Demande d'échange de clé reçue de {peer_ip}")
+
+                # Mettre à jour la clé de l'expéditeur
+                if self.on_key_received:
+                    self.on_key_received(peer_ip, key_pem)
+
+                # Envoyer notre propre clé en réponse
                 if self.local_public_key:
                     response = f"PUBKEY:{self.local_public_key}"
                     conn.sendall(response.encode())
-                    self.log(f"[INFO] Clé publique locale envoyée à {addr}")
+                    self.log(f"[INFO] Clé publique locale envoyée à {peer_ip}")
                 else:
                     self.log("[ERREUR] Clé publique locale non disponible pour répondre.")
             elif data.startswith("GROUPMSG:"):
@@ -71,15 +80,13 @@ class PeerCommunicator:
                     self.log(f"[ERREUR] Mauvais format de message JOINGROUP : {e}")
                 return
             else:
-                # Message direct reçu (peut être chiffré ou non)
-                self.messages.append((addr[0], data))
-                self.log(f"[INFO] Message reçu de {addr[0]} : {data}")
-                
-                # Appeler le callback pour les messages directs
+                # Si le message n'est pas une commande système, on suppose que c'est un message direct chiffré.
+                # On le transmet au NetworkManager qui le passera au MessageManager pour déchiffrement.
+                self.log(f"[DEBUG] PEER_COMMUNICATOR: Message direct reçu de {addr[0]}. Transmission pour déchiffrement.")
                 if self.on_message_received:
                     self.on_message_received(addr[0], data)
         except Exception as e:
-            self.log(f"[ERREUR] Connexion entrante mal formée : {e}")
+            self.log(f"[ERREUR] Erreur lors du traitement de la connexion de {addr}: {e}")
         finally:
             conn.close()
 

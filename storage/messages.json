@@ -1,37 +1,82 @@
 [
   [
-    "25.46.117.84",
     "192.168.1.11",
-    "eh bah alors"
+    "25.46.117.84",
+    "tg"
   ],
   [
     "25.46.117.84",
     "192.168.1.11",
-    "arrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrar"
+    "fdp"
   ],
   [
     "25.46.117.84",
     "192.168.1.11",
-    "s"
+    "veuillez r\u00e9p\u00e9ter"
   ],
   [
     "25.46.117.84",
     "192.168.1.11",
-    "d"
+    "g"
   ],
   [
-    "25.46.117.84",
     "192.168.1.11",
-    "q"
+    "25.6.151.34",
+    "ola"
   ],
   [
-    "25.46.117.84",
+    "25.6.151.34",
     "192.168.1.11",
-    "q"
+    "ola"
   ],
   [
-    "25.46.117.84",
     "192.168.1.11",
-    "z"
+    "25.6.151.34",
+    "Correction finale : double scroll, puis forcer update et scroll \u00e0 nouveau\n        def scroll_to_last_message():\n            count = messages_layout.count()\n            if count > 1:\n                last_msg_item = messages_layout.itemAt(count - 2)\n                last_msg_widget = last_msg_item.widget()\n                if last_msg_widget:\n                    messages_area.ensureWidgetVisible(last_msg_widget)\n            messages_area.verticalScrollBar().setValue(messages_area.verticalScrollBar().maximum())\n            # Forcer un update puis rescroll apr\u00e8s l'event loop"
+  ],
+  [
+    "25.6.151.34",
+    "192.168.1.11",
+    "{\"type\": \"ENCRYPTED_MESSAGE\", \"encrypted_key\": \"7a43301a3329276aac1b4e29f62715dffc4ddc2596bdf939bf03e5729dc1562ec6903c1f430fe34d1a2088e3ccfcc0bf0acc7654f869df06177f42f49c494f5a2a8dd0e52d27f6f0e508526f2800b1c5e8de56016d3a9e4415940e0fcd36e0b8892f2f6a812f82a9673ebddfe970a2bf1baa2ef3b271a6ac640612d18eaba49fb4b0c6e0c75e17a1359c0aee512a4ed30aa1971c6df2ce954f6bd078a869156ea078e4478ef2ad3220b82fe463af6d5ec02b819ca57890f2de27f06805822c0e9d72834b3a5c75e569964fecbf0ee5470029066c4d0c4590fa569cc90cef80f5118565f8f00739345bbf762b9cdb199509192aea2f6fdbcd4731b5dfcbe729c1\", \"iv\": \"e68836bb0a11ffff1e1b549a795be41c\", \"ciphertext\": \"1113c897ff7a2391e224be44466fa1433983ff0f2f4c5696828b8c532c1a7054b3ff7cf183bfbb02781667ebcd70530ef237f58e6ac4d0d0bd1f524f48da1a33deddd3a37e6e665cbd6026041ca28657a398cf0904f6bfa2d037d306bb8f77c6dcafe699e4170ae22206fca9a2471f4f302f3975e17c56954fa02a894a1a9161542a1b1e1ca8015f2131ddc2e1473e7c11bbdc6a28701f2e8e1ccefeb40ad7aa6a181872ab0dc33222d75bb17c2bcb32e621608969c3279fefdb2c4a8b89865db070b3b6388a29fffdfe"
+  ],
+  [
+    "192.168.1.11",
+    "25.6.151.34",
+    "Correction finale : double scroll, puis forcer update et scroll \u00e0 nouveau\n        def scroll_to_last_message():\n            count = messages_layout.count()\n            if count > 1:\n                last_msg_item = messages_layout.itemAt(count - 2)\n                last_msg_widget = last_msg_item.widget()\n                if last_msg_widget:\n                    messages_area.ensureWidgetVisible(last_msg_widget)\n            messages_area.verticalScrollBar().setValue(messages_area.verticalScrollBar().maximum())\n            # Forcer un update puis rescroll apr\u00e8s l'event loop"
+  ],
+  [
+    "25.6.151.34",
+    "192.168.1.11",
+    "{\"type\": \"ENCRYPTED_MESSAGE\", \"encrypted_key\": \"a4bc26db8829aed1ec65ab769cf587d259c182064434fa97ac152088fd80ead455c5eb6f84cff37e0242966ee9fdfd51a893afbc2d6bd41ae8445d2f268ddf75b34f42341f7b91a5061c87a04f0b37102796aab80a967626da23307809b68c7900381c495b990edbaca800802da939f080ac2af2920e3ca75f6954d75c9c1c91216467c814c97753bdcf48dba89d19b1f8c0075cfaef1b33249e1a47b08b5de688c828017bd1c6cc29c031d2934947513844ad5b68b41f9172df02158fbab5db670806dda9fc7c8c2a982052000f6ba725fc81dc77cdf79b6ebce44536c732b2ec710d9647b17772b1994b5a08787df2d1deef5265be1cb252ecc8cc3cc6b502\", \"iv\": \"f837a4b72b66e79960cb0c881256c147\", \"ciphertext\": \"36514907cb0979340ff9bd606d1bef9ae135b3ac97bdeb946103fbe9d396400a889d77fadbf62a9b1f9ced8fefdb182c06afba569ab029de3bccb16e0dc6f459afdf66bc1ff14f2dd26f98580e93708ccb1d0c0713d05afb3b8e4561caae1a2e1d375180e2a6e03ad0f644be23804b9cf362fab28cecc0380decef808a3b0561d509f8809a2395df619a6a1c6d6dc127a503b4e2a83aec95c0f38dce0373429e9d471501da3e57b34715b0c38ea9c775490f1c74eb1f0786b2239eb9a8369b9465ce642d0583c98e7c4c"
+  ],
+  [
+    "192.168.1.11",
+    "25.6.151.34",
+    "simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ips"
+  ],
+  [
+    "25.6.151.34",
+    "192.168.1.11",
+    "{\"type\": \"ENCRYPTED_MESSAGE\", \"encrypted_key\": \"1b1f30a31683a7b34259f2475b1811718ef56d65ffbd7d38f60728689ae2d9cc72f8908aa6a94da0a42126b6bb78abb0ca4be7e292712659c36de29e6efb9d6615ff477fd1c10ff52eb940de4679284520b580423ac1351e1aa956cd618f30affdfeb3b17e6d1300b1cab881094f52c956c5911cb051b888ff5dcc57dfbd4bfa4963a875e08ba7d4e0828d85e0e961c9865287b71cd473e56db96f01d10463db1f4e4af2b8f1f65835962e381ae39e92a07d9fce3cdca5cc48e4ab65395d60a6c5b575194425b47dfe5143fc1a044059d41fffa2108c2a3dee6566c4edf780cef65a990564b2c55cfaa328162f44e17d4598c35bef52c8dc1161d8eccde8200a\", \"iv\": \"ed3ea20392eb4b9b6573ed534179b775\", \"ciphertext\": \"16a8157bd442d5142cd51cc797b3ffdf8a0da220e7d2bd105a367fb0ffa3229506a2c2983f316fa34696dca3dc673e18b8043a536703bc2e0bffa9de1b071386c2d941407b1db96aa5c97a09a8d71a55170eb9c82f697b43a1f42d4b3a1187aeb8b2d27b5ca4d94509697698802adedc7993fb45aee311b4adfaad7327e8fe324ac41427a9b394d51612d0a0cc62deba493bf72ec75a77b227b8512b9bd32ea287f658348d75cb473772b805a4e63e5e592f3fc786e222db5942a13ba100d48627e54d9af98000628bf0"
+  ],
+  [
+    "192.168.1.11",
+    "25.6.151.34",
+    "simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ips"
+  ],
+  [
+    "25.6.151.34",
+    "192.168.1.11",
+    "{\"type\": \"ENCRYPTED_MESSAGE\", \"encrypted_key\": \"7c94e1f770f0f0a31a3c8d96c36b544427715c19512bcbd32c96cbaa6aa1b6b09364c4abfe033abcada868eb511e792f08654d8f7d1534731b326d3224c65d71ce762bcac67fc5ca4d3e74fb6a76c73390faa40f4ac1dec2147db254f7ba92a1ee20b97d680797776de93505381ff86ad5a2ec6c3901b2125844fe7b70ce219d70a761c78752c3d375c9f37776bee677cadcae3f4ea92288f9c7793089cb24e755f19a1d3acb7342d4bff3f0458617d7003372c24c57d2225546685df05a64518dafcb9b89a45401af7f588d6dd01791f354367ff95cd2682c3d2f7cf61f2e9df7a94e271be1ed3f53c4ad78ed955ead5d5cda415a7843e5ef8942d8174f0e05\", \"iv\": \"db19228ad5c2cd6f23d679388e891ba0\", \"ciphertext\": \"5c13cea79ab58397d98a0d21e5e6ad64f2cc54c939ddc48cfd434419296acfd27ca05732b7e228908a1e72c9e0d60e368a336a9e5d35eaef328b4d7bf6a3b3552364ac7402adc7bc4f43ee78868c4ac4d88c6f7218281881e4c21f4820aca886cb4a87675c58e3aaadbb87b4dcaf86024cf2407d3fca010373d5490a4650f475af8db6a31353bc26dab5862ae4517bbf45d9987f5b3d40db38d6c1ddcbfdbf115cfe97903d3172ad2f37719f99695e6fc97d64e6c0bef8da3d321bad6669ea889cf4b459d141e797faab"
+  ],
+  [
+    "192.168.1.11",
+    "25.6.151.34",
+    "simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and mor"
+  ],
+  [
+    "25.6.151.34",
+    "192.168.1.11",
+    "{\"type\": \"ENCRYPTED_MESSAGE\", \"encrypted_key\": \"006d31df5b63ffcf4d832c853c019212e2931f21b2a5e5320082e308553efab33c0bdbfaf07500a11898a87ed90f28ed56c2cdaa6179d58f11b025e1aa4ea9821c02ab6c70d72c69770bd4845a42667a85cdbcc3b829866dce12ec8b5afccb17a5e1a5d972f09438c04e2293b60b365b84e5c2a9a54aa6cfffa65b879b0e3c3fff0cdbc683aa2e5bf8fcd7e87b9c85db1596cb4833317c7a924914ce7f50654769d40a9e19bd0a151a108841b7ddc2c271c51ecf642376e333baa00fc590680989645bbf4917ffb0fe006b002c7abf44ed34d1d945e2006ecf2ec5c7a05ad227db0b4e97da1f60db06c734a95cbcdc7bb29d46f82482d38aa564b0085c61137c\", \"iv\": \"de8ea1e0d5505c43f08e4fa9df06354e\", \"ciphertext\": \"9281461d24f781b646fb13e79218fba638a206fd95c71ac141cbab9af8c6bf6b1ca9227e627d96249e446680d30fce115f3ddc4bc4bf364b648a2036b4de68aa7744862eb28a6cbcac67732a53232a82075865a05b8be0c1d876d429d25d404a53ea4b1e6d252fca99087a1ed8ad309ef59cd3b86e0979eda19a6af66739ef1c7c791149d54b87cb8a387f73b3dc2260a2c27b5e86f9a64dec3525f54fb722ec8ec83d3246d828aa1c60f6a16d9fda9e89a53dec9dd6ac0fc8718a4f32a2db16262648c26bfe4dc8c2a9"
   ]
 ]
