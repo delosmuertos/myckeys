@@ -660,6 +660,10 @@ class Dashboard(QWidget):
         self.afficher_chat(self.selected_conversation)
 
     def afficher_chat(self, conv):
+        # Sauvegarder le texte en cours de saisie s'il existe
+        current_text = ""
+        if hasattr(self, 'message_input') and self.message_input is not None:
+            current_text = self.message_input.text()
         # Nettoyer la zone de chat
         for i in reversed(range(self.chat_layout.count())):
             widget = self.chat_layout.itemAt(i).widget()
@@ -822,6 +826,21 @@ class Dashboard(QWidget):
         messages_area.setWidget(messages_widget)
         self.chat_layout.addWidget(messages_area, stretch=1)
 
+        # Correction finale : double scroll, puis forcer update et scroll à nouveau
+        def scroll_to_last_message():
+            count = messages_layout.count()
+            if count > 1:
+                last_msg_item = messages_layout.itemAt(count - 2)
+                last_msg_widget = last_msg_item.widget()
+                if last_msg_widget:
+                    messages_area.ensureWidgetVisible(last_msg_widget)
+            messages_area.verticalScrollBar().setValue(messages_area.verticalScrollBar().maximum())
+            # Forcer un update puis rescroll après l'event loop
+            def rescroll():
+                messages_area.verticalScrollBar().setValue(messages_area.verticalScrollBar().maximum())
+            QTimer.singleShot(50, rescroll)
+        QTimer.singleShot(0, scroll_to_last_message)
+
         # Zone de saisie
         input_frame = QFrame()
         input_frame.setStyleSheet("background: #f5f5f5; border-top: 1px solid #d3d3d3;")
@@ -840,6 +859,8 @@ class Dashboard(QWidget):
                 background: white;
             }
         """)
+        # Restaurer le texte précédemment saisi
+        self.message_input.setText(current_text)
         self.message_input.returnPressed.connect(
             lambda: self.envoyer_message_groupe(conv['name']) if conv['type'] == 'group' 
             else self.envoyer_message(conv['ip'])
@@ -947,4 +968,4 @@ class Dashboard(QWidget):
         if reply == QMessageBox.Yes:
             event.accept()
         else:
-            event.ignore() 
+            event.ignore()
