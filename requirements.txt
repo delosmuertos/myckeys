@@ -1,4 +1,4 @@
-sqlalchemy
+PyQt5
+cryptography
 passlib
-bcrypt==4.0.1
-zeroconf
+bcrypt

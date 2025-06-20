@@ -9,7 +9,7 @@ Application de messagerie instantanée P2P avec chiffrement de bout en bout, fon
 - **Interface** : PyQt5 (GUI moderne)
 - **Réseau** : UDP pour la découverte, TCP pour les messages
 - **Sécurité** : RSA-2048 (échange de clés) + AES-256 (chiffrement des messages)
-- **Découverte** : Zeroconf/mDNS pour la détection automatique des pairs
+- **Découverte** : Broadcast UDP pour la détection automatique des pairs
 - **Base de données** : SQLite pour les utilisateurs
 
 ## 2. Architecture générale
@@ -24,7 +24,7 @@ Application de messagerie instantanée P2P avec chiffrement de bout en bout, fon
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Persistance   │    │   Découverte    │    │   Logs          │
-│   (JSON/SQLite) │    │   (Zeroconf)    │    │   (Chiffrés)    │
+│   (JSON/SQLite) │    │  (UDP Broadcast)│    │   (Chiffrés)    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -40,7 +40,7 @@ Mykeys/
 │   └── models/User.py      # Modèle utilisateur
 ├── network/                # Communication réseau
 │   ├── communication.py    # Communication TCP entre pairs
-│   ├── discoveryend.py     # Découverte réseau (Zeroconf)
+│   ├── discoveryend.py     # Découverte réseau (UDP Broadcast)
 │   ├── message_manager.py  # Gestion des messages
 │   ├── group_manager.py    # Gestion des groupes
 │   └── disconnect.py       # Gestion de la déconnexion
@@ -108,9 +108,8 @@ Mykeys/
 **Rôle** : Détection automatique des pairs sur le réseau local
 
 **Mécanisme** :
-- Utilise Zeroconf/mDNS pour annoncer et découvrir les services
-- Service type : `_securemsg._tcp.local.`
-- Port UDP : 50000 pour les broadcasts
+- Utilise des broadcasts UDP sur le port 50000
+- Envoi d'un message de présence toutes les 5 secondes
 - Timeout : 30 secondes pour considérer un pair comme déconnecté
 
 #### Communication (`communication.py`)
@@ -154,11 +153,12 @@ Mykeys/
 
 ### 5.1 Découverte d'un nouveau pair
 ```
-1. Zeroconf détecte un nouveau service
-2. NetworkDiscovery → on_peer_discovered(ip, nom)
-3. NetworkManager → peer_discovered.emit(ip, nom)
-4. Dashboard → _on_peer_discovered(ip, nom)
-5. Interface mise à jour avec le nouveau pair
+1. Un pair envoie un broadcast UDP de présence
+2. NetworkDiscovery.listen_for_peers() reçoit le message
+3. NetworkDiscovery → on_peer_discovered(ip, nom)
+4. NetworkManager → peer_discovered.emit(ip, nom)
+5. Dashboard → _on_peer_discovered(ip, nom)
+6. Interface mise à jour avec le nouveau pair
 ```
 
 ### 5.2 Envoi d'un message
@@ -190,7 +190,7 @@ Mykeys/
 ### 6.2 Pour comprendre la communication réseau
 **Fichiers à lire** :
 1. `app/network_manager.py` - Orchestrateur
-2. `network/discoveryend.py` - Découverte des pairs
+2. `network/discoveryend.py` - Découverte des pairs (UDP Broadcast)
 3. `network/communication.py` - Communication TCP
 4. `network/message_manager.py` - Gestion des messages
 
@@ -218,6 +218,7 @@ pip install -r requirements.txt
 ### 7.2 Variables d'environnement importantes
 - Ports par défaut : UDP 50000, TCP 50001
 - Timeout de découverte : 30 secondes
+- Intervalle de broadcast : 5 secondes
 - Taille des clés RSA : 2048 bits
 - Algorithme de chiffrement : AES-256
 
@@ -252,7 +253,7 @@ pip install -r requirements.txt
 
 ### 9.2 Problèmes courants
 - **Messages non reçus** : Vérifier les pare-feu Windows
-- **Pairs non détectés** : Vérifier la configuration réseau
+- **Pairs non détectés** : Vérifier la configuration réseau et les règles de broadcast
 - **Erreurs de déchiffrement** : Supprimer `storage/public_keys.json`
 
 ### 9.3 Tests

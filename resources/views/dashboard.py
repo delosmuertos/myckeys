@@ -2,12 +2,6 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QPushButt
 from PyQt5.QtCore import Qt, QSize, QTimer, QThread, pyqtSignal
 from PyQt5.QtGui import QIcon, QPixmap, QFont
 import os
-import socket
-from zeroconf import ServiceInfo, Zeroconf, ServiceBrowser
-import threading
-from network.discovery import MyListener, annoncer_service, DecouverteThread
-from network.disconnect import DisconnectManager
-import logging
 from app.network_manager import NetworkManager
 from resources.views.settings_window import SettingsWindow
 
@@ -221,8 +215,26 @@ class Dashboard(QWidget):
         top_bar_layout.addSpacing(16)
 
         # Bouton Déconnexion
-        self.disconnect_manager = DisconnectManager(self)
-        btn_deco = self.disconnect_manager.creer_bouton_deconnexion(self)
+        btn_deco = QPushButton("Déconnexion")
+        btn_deco.setCursor(Qt.PointingHandCursor)
+        btn_deco.setStyleSheet("""
+            QPushButton {
+                background-color: #6c757d;
+                color: white;
+                font-size: 15px;
+                border-radius: 10px;
+                padding: 8px 18px;
+                min-width: 140px;
+                text-align: left;
+            }
+            QPushButton:hover { background-color: #5a6268; }
+            QPushButton:pressed { background-color: #545b62; }
+        """)
+        icon_path = os.path.join("resources/img", "logoutblanc.png")
+        if os.path.exists(icon_path):
+            btn_deco.setIcon(QIcon(icon_path))
+            btn_deco.setIconSize(QSize(20, 20))
+
         btn_deco.clicked.connect(self.deconnexion)
         top_bar_layout.addWidget(btn_deco)
         top_bar_layout.addSpacing(8)
@@ -414,15 +426,12 @@ class Dashboard(QWidget):
                     'ip': ip,
                     'status': peer_info.get('status', 'online')
                 }
-                
                 # Utiliser une méthode dédiée pour éviter les problèmes de lambda
                 circle_icon.mousePressEvent = lambda event, p=periph, w=circle_icon: self._handle_peripheral_click(p, w)
-                
                 self.left_layout.insertWidget(2 + len(self.peripherique_widgets), circle_icon, alignment=Qt.AlignHCenter)
                 self.peripherique_widgets.append(circle_icon)
             except Exception as e:
                 print(f"[DEBUG] Erreur lors de la création du widget pour {ip}: {e}")
-        
         print(f"[DEBUG] Nombre de widgets créés: {len(self.peripherique_widgets)}")
 
     def _handle_peripheral_click(self, periph, widget):
@@ -779,11 +788,13 @@ class Dashboard(QWidget):
             QMessageBox.information(self, "Info", "Effacement sécurisé effectué")
 
     def deconnexion(self):
-        if self.disconnect_manager.deconnexion_complete(
-            zeroconf=None,
-            service_info=None,
-            threads=None
-        ):
+        reply = QMessageBox.question(
+            self, 'Déconnexion',
+            "Êtes-vous sûr de vouloir vous déconnecter et quitter ?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
             self.network_manager.stop()
             self.close()
             self.deconnexion_terminee.emit()
