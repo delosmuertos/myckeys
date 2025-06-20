@@ -43,7 +43,6 @@ Mykeys/
 │   ├── discoveryend.py     # Découverte réseau (UDP Broadcast)
 │   ├── message_manager.py  # Gestion des messages
 │   ├── group_manager.py    # Gestion des groupes
-│   └── disconnect.py       # Gestion de la déconnexion
 ├── security/               # Sécurité
 │   └── key_manager.py      # Gestion des clés et certificats
 ├── resources/              # Interface utilisateur

@@ -1,5 +1,6 @@
 import socket
 import threading
+import json
 
 TCP_PORT = 50001
 BUFFER_SIZE = 1024
@@ -17,6 +18,13 @@ class PeerCommunicator:
         # Callbacks pour les messages reçus
         self.on_message_received = None
         self.on_group_message_received = None
+        self.local_public_key = None
+        self.server_socket = None
+        self.is_running = False
+
+    def set_local_public_key(self, key: str):
+        """Définit la clé publique locale à utiliser pour les réponses."""
+        self.local_public_key = key
 
     def handle_client(self, conn, addr):
         self.log(f"[DEBUG] PEER_COMMUNICATOR: Connexion reçue de {addr[0]}")
@@ -24,32 +32,13 @@ class PeerCommunicator:
             data = conn.recv(BUFFER_SIZE).decode()
             self.log(f"[DEBUG] PEER_COMMUNICATOR: Données reçues de {addr[0]}: {data[:100]}...")
             if data.startswith("PUBKEY:"):
-                peer_ip = addr[0]
-                key = data.split(":", 1)[1]
-                self.public_keys[peer_ip] = key
-                self.log(f"[INFO] Clé publique reçue de {peer_ip}")
-                
-                # Répondre automatiquement avec notre clé publique
-                try:
-                    # Récupérer notre clé publique via la fonction d'échange
-                    if hasattr(self.key_exchange, '__self__'):
-                        # Si key_exchange est une méthode liée, récupérer la clé publique
-                        message_manager = self.key_exchange.__self__
-                        if hasattr(message_manager, 'ma_cle_publique'):
-                            ma_cle = message_manager.ma_cle_publique
-                            if ma_cle:
-                                response = f"PUBKEY:{ma_cle}"
-                                conn.send(response.encode())
-                                self.log(f"[INFO] Clé publique renvoyée à {peer_ip}")
-                            else:
-                                self.log(f"[ERREUR] Clé publique locale non disponible pour {peer_ip}")
-                        else:
-                            self.log(f"[ERREUR] Impossible de récupérer la clé publique locale")
-                    else:
-                        self.log(f"[ERREUR] Fonction d'échange de clés non disponible")
-                except Exception as e:
-                    self.log(f"[ERREUR] Échec de la réponse de clé publique à {peer_ip}: {e}")
-                    
+                self.log(f"[INFO] Demande d'échange de clé reçue de {addr}")
+                if self.local_public_key:
+                    response = f"PUBKEY:{self.local_public_key}"
+                    conn.sendall(response.encode())
+                    self.log(f"[INFO] Clé publique locale envoyée à {addr}")
+                else:
+                    self.log("[ERREUR] Clé publique locale non disponible pour répondre.")
             elif data.startswith("GROUPMSG:"):
                 try:
                     _, nom, msg = data.split(":", 2)
@@ -159,8 +148,9 @@ class PeerCommunicator:
         self.groupes[nom]["messages"].append(("Moi", msg))
         self.log(f"[INFO] Message envoyé au groupe '{nom}' : {msg}")
 
-    def start(self):
-        """Démarre le serveur TCP"""
+    def start(self) -> None:
+        """Démarre le serveur TCP dans un thread séparé."""
+        self.is_running = True
         self.start_tcp_server()
 
     def stop(self):

@@ -103,8 +103,8 @@ class MessageManager:
                 
                 # Stocker le message envoyé dans la liste locale (en clair pour l'affichage)
                 local_ip = self.get_local_ip()
-                self.messages.append((local_ip, msg))
-                print(f"[DEBUG] MessageManager - Message envoyé stocké: ({local_ip}, {msg})")
+                self.messages.append((local_ip, ip, msg))
+                print(f"[DEBUG] MessageManager - Message envoyé stocké: ({local_ip}, {ip}, {msg})")
                 print(f"[DEBUG] MessageManager - État des messages après envoi: {self.messages}")
                 # Sauvegarder les messages
                 self._save_messages()
@@ -131,6 +131,8 @@ class MessageManager:
             if not data or not addr:
                 return None
             
+            local_ip = self.get_local_ip()
+
             try:
                 message_data = json.loads(data)
                 if message_data.get('type') == 'ENCRYPTED_MESSAGE':
@@ -142,20 +144,20 @@ class MessageManager:
                     plaintext = decrypted_message.decode()
                     
                     self.log(f"[INFO] Message déchiffré reçu de {addr} : {plaintext}")
-                    self.messages.append((addr, plaintext))
+                    self.messages.append((addr, local_ip, plaintext))
                     self._save_messages()
                     return plaintext
                 else:
                     # Gérer d'autres types de messages JSON si nécessaire
                     self.log(f"[INFO] Message JSON non-chiffré reçu de {addr} : {data}")
-                    self.messages.append((addr, data))
+                    self.messages.append((addr, local_ip, data))
                     self._save_messages()
                     return data
 
             except json.JSONDecodeError:
                 # Gérer les messages non-JSON (pour la compatibilité)
                 self.log(f"[INFO] Message texte simple reçu de {addr} : {data}")
-                self.messages.append((addr, data))
+                self.messages.append((addr, local_ip, data))
                 self._save_messages()
                 return data
                 
@@ -189,14 +191,19 @@ class MessageManager:
             self.log(f"[ERREUR] Erreur lors du traitement de l'échange de clés avec {addr} : {e}")
             return False
 
-    def get_messages(self) -> List[Tuple[str, str]]:
+    def get_messages(self) -> List[Tuple[str, str, str]]:
         """Retourne tous les messages reçus"""
         print(f"[DEBUG] MessageManager - get_messages appelé, messages disponibles: {self.messages}")
         return self.messages.copy()
 
-    def get_messages_from(self, ip: str) -> List[Tuple[str, str]]:
+    def get_messages_from(self, ip: str) -> List[Tuple[str, str, str]]:
         """Retourne les messages reçus d'une IP spécifique"""
-        return [(sender, msg) for sender, msg in self.messages if sender == ip]
+        local_ip = self.get_local_ip()
+        return [
+            (sender, recipient, msg) 
+            for sender, recipient, msg in self.messages 
+            if (sender == ip and recipient == local_ip) or (sender == local_ip and recipient == ip)
+        ]
 
     def get_public_keys(self) -> Dict[str, str]:
         """Retourne toutes les clés publiques reçues"""
@@ -219,7 +226,7 @@ class MessageManager:
     def clear_messages_from(self, ip: str) -> int:
         """Efface tous les messages d'une IP spécifique et retourne le nombre d'effacés"""
         initial_count = len(self.messages)
-        self.messages = [(sender, msg) for sender, msg in self.messages if sender != ip]
+        self.messages = [(sender, recipient, msg) for sender, recipient, msg in self.messages if sender != ip and recipient != ip]
         deleted_count = initial_count - len(self.messages)
         if deleted_count > 0:
             self.log(f"[INFO] {deleted_count} messages de {ip} ont été effacés")
@@ -231,15 +238,15 @@ class MessageManager:
 
     def get_message_count_from(self, ip: str) -> int:
         """Retourne le nombre de messages d'une IP spécifique"""
-        return len([1 for sender, _ in self.messages if sender == ip])
+        return len([1 for sender, recipient, _ in self.messages if sender == ip or recipient == ip])
 
-    def get_recent_messages(self, count: int = 10) -> List[Tuple[str, str]]:
+    def get_recent_messages(self, count: int = 10) -> List[Tuple[str, str, str]]:
         """Retourne les messages les plus récents"""
         return self.messages[-count:] if self.messages else []
 
-    def search_messages(self, keyword: str) -> List[Tuple[str, str]]:
+    def search_messages(self, keyword: str) -> List[Tuple[str, str, str]]:
         """Recherche des messages contenant un mot-clé"""
-        return [(sender, msg) for sender, msg in self.messages if keyword.lower() in msg.lower()]
+        return [(sender, recipient, msg) for sender, recipient, msg in self.messages if keyword.lower() in msg.lower()]
 
     def _load_messages(self) -> None:
         """Charge les messages depuis le fichier de persistance"""
