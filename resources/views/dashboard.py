@@ -774,6 +774,11 @@ class Dashboard(QWidget):
             'name': conv_data.get('nom'),
             'ip': conv_data.get('ip')
         }
+
+        # S'assurer que l'échange de clés est fait avant d'afficher le chat
+        if self.selected_conversation['type'] == 'contact':
+            self.network_manager.ensure_key_exchange(self.selected_conversation['ip'])
+
         self.afficher_conversations()
         self.afficher_chat(self.selected_conversation)
 

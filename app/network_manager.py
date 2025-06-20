@@ -252,6 +252,16 @@ class NetworkManager(QObject):
         """Retourne tous les groupes"""
         return self.group_manager.get_groupes()
     
+    def ensure_key_exchange(self, ip: str):
+        """
+        S'assure qu'un échange de clés est effectué avec l'IP donnée si ce n'est pas déjà fait.
+        S'exécute dans un thread d'arrière-plan pour ne pas bloquer l'interface graphique.
+        """
+        if hasattr(self.message_manager, 'has_public_key') and not self.message_manager.has_public_key(ip):
+            self.logger.info(f"Lancement de l'échange de clés avec {ip} en arrière-plan.", "NETWORK_MANAGER")
+            thread = threading.Thread(target=self.message_manager.echanger_cles_publiques, args=(ip,), daemon=True)
+            thread.start()
+    
     def get_peer_public_key(self, ip: str) -> Optional[str]:
         """Retourne la clé publique d'un pair spécifique"""
         if hasattr(self.message_manager, 'get_public_key'):
