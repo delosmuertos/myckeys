@@ -30,8 +30,21 @@ class PeerCommunicator:
     def handle_client(self, conn, addr):
         self.log(f"[DEBUG] PEER_COMMUNICATOR: Connexion reçue de {addr[0]}")
         try:
-            data = conn.recv(BUFFER_SIZE).decode()
-            self.log(f"[DEBUG] PEER_COMMUNICATOR: Données reçues de {addr[0]}: {data[:100]}...")
+            # Lire les données en boucle pour s'assurer de recevoir le message complet
+            full_data_bytes = b''
+            while True:
+                chunk = conn.recv(BUFFER_SIZE)
+                if not chunk:
+                    break  # Le client a fermé la connexion, message complet
+                full_data_bytes += chunk
+            
+            if not full_data_bytes:
+                self.log(f"[DEBUG] PEER_COMMUNICATOR: Aucune donnée reçue de {addr[0]}.")
+                return
+
+            data = full_data_bytes.decode()
+            self.log(f"[DEBUG] PEER_COMMUNICATOR: Données complètes reçues de {addr[0]}: {data[:150]}...")
+            
             if data.startswith("PUBKEY:"):
                 peer_ip = addr[0]
                 key_pem = data.split(":", 1)[1]
